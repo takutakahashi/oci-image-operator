@@ -1,0 +1,6 @@
+apiVersion: build.takutakahashi.dev/v1beta1
+kind: Image
+metadata:
+  name: image-sample
+spec:
+  # TODO(user): Add fields here

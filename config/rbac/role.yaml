@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
+  - images/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
+  - images/status
+  verbs:
+  - get
+  - patch
+  - update

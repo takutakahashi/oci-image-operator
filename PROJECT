@@ -1,0 +1,16 @@
+domain: takutakahashi.dev
+layout:
+- go.kubebuilder.io/v3
+projectName: oci-image-operator
+repo: github.com/takutakahashi/oci-image-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: takutakahashi.dev
+  group: build
+  kind: Image
+  path: github.com/takutakahashi/oci-image-operator/api/v1beta1
+  version: v1beta1
+version: "3"
