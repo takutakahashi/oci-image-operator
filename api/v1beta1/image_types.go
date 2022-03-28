@@ -25,12 +25,42 @@ import (
 
 // ImageSpec defines the desired state of Image
 type ImageSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Image. Edit image_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Repository ImageRepository `json:"repository"`
+	Targets    []ImageTarget   `json:"targets"`
 }
+
+type ImageRepository struct {
+	URL         string           `json:"url"`
+	TagPolicies []ImageTagPolicy `json:"tagPolicies"`
+}
+
+type ImageTagPolicy struct {
+	Policy   ImageTagPolicyType `json:"policy"`
+	Revision string             `json:"revision"`
+}
+
+type ImageTagPolicyType string
+
+var (
+	ImageTagPolicyTypeBranchHash ImageTagPolicyType = "branchHash"
+	ImageTagPolicyTypeBranchName ImageTagPolicyType = "branchName"
+	ImageTagPolicyTypeTagHash    ImageTagPolicyType = "tagHash"
+	ImageTagPolicyTypeTagName    ImageTagPolicyType = "tagName"
+)
+
+type ImageTarget struct {
+	Name string    `json:"name"`
+	Auth ImageAuth `json:"auth,omitempty"`
+}
+
+type ImageAuth struct {
+	Type       ImageAuthType `json:"type"`
+	SecretName string        `json:"secretName"`
+}
+
+type ImageAuthType string
+
+var ImageAuthTypeBasic ImageAuthType = "basic"
 
 // ImageStatus defines the observed state of Image
 type ImageStatus struct {
