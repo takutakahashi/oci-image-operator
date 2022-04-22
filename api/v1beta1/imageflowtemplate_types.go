@@ -17,19 +17,24 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+var AnnotationImageFlowTemplateDefaultDetect string = "build.takutakahashi.dev/default-template-detect"
+var AnnotationImageFlowTemplateDefaultCheck string = "build.takutakahashi.dev/default-template-check"
+var AnnotationImageFlowTemplateDefaultUpload string = "build.takutakahashi.dev/default-template-upload"
+var AnnotationImageFlowTemplateDefaultAll string = "build.takutakahashi.dev/default-template-all"
 
 // ImageFlowTemplateSpec defines the desired state of ImageFlowTemplate
 type ImageFlowTemplateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Detect ImageFlowTemplateSpecTemplate `json:"detect,omitempty"`
+	Check  ImageFlowTemplateSpecTemplate `json:"check,omitempty"`
+	Upload ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
+}
 
-	// Foo is an example field of ImageFlowTemplate. Edit imageflowtemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type ImageFlowTemplateSpecTemplate struct {
+	PodSpec v1.PodSpec `json:"podSpec,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate

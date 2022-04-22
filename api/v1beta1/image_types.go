@@ -27,8 +27,9 @@ import (
 
 // ImageSpec defines the desired state of Image
 type ImageSpec struct {
-	Repository ImageRepository `json:"repository"`
-	Targets    []ImageTarget   `json:"targets"`
+	TemplateName string          `json:"templateName,omitempty"`
+	Repository   ImageRepository `json:"repository"`
+	Targets      []ImageTarget   `json:"targets"`
 }
 
 type ImageRepository struct {
