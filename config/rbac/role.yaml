@@ -8,6 +8,13 @@ rules:
 - apiGroups:
   - build.takutakahashi.dev
   resources:
+  - imageflowtemplates
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
   - images
   verbs:
   - create

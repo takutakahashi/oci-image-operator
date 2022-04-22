@@ -34,6 +34,7 @@ type ImageSpec struct {
 
 type ImageRepository struct {
 	URL         string           `json:"url"`
+	Auth        ImageAuth        `json:"auth,omitempty"`
 	TagPolicies []ImageTagPolicy `json:"tagPolicies"`
 }
 

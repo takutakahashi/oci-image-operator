@@ -18,14 +18,19 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/google/go-cmp/cmp"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
+	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 )
 
 // ImageReconciler reconciles a Image object
@@ -36,6 +41,7 @@ type ImageReconciler struct {
 }
 
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=images,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=imageflowtemplates,verbs=get;list
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=images/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=images/finalizers,verbs=update
 
@@ -50,9 +56,19 @@ type ImageReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-
-	// TODO(user): your logic here
-
+	image, imt, secrets, err := r.gatherResources(ctx, req)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	after, err := imageutil.Ensure(image, imt, secrets)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if diff := cmp.Diff(image, after); diff != "" {
+		if err := r.Update(ctx, after, &client.UpdateOptions{}); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -61,4 +77,37 @@ func (r *ImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&buildv1beta1.Image{}).
 		Complete(r)
+}
+
+func (r *ImageReconciler) gatherResources(ctx context.Context, req ctrl.Request) (*buildv1beta1.Image, *buildv1beta1.ImageFlowTemplate, map[string]*corev1.Secret, error) {
+
+	image := &buildv1beta1.Image{}
+	if err := r.Get(ctx, req.NamespacedName, image); err != nil {
+		return nil, nil, nil, err
+	}
+	imt := &buildv1beta1.ImageFlowTemplate{}
+	imtName := image.Spec.TemplateName
+	if imtName == "" {
+		imtName = image.Annotations[buildv1beta1.AnnotationImageFlowTemplateDefaultAll]
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: imtName, Namespace: image.Namespace}, imt); err != nil {
+		return nil, nil, nil, err
+	}
+	secrets := map[string]*corev1.Secret{}
+	s := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: image.Spec.Repository.Auth.SecretName, Namespace: image.Namespace}, s); err != nil {
+		return nil, nil, nil, err
+	}
+	secrets[fmt.Sprintf("repository/%s", image.Spec.Repository.Auth.SecretName)] = s
+	for _, target := range image.Spec.Targets {
+		if target.Auth.SecretName == "" {
+			continue
+		}
+		s := &corev1.Secret{}
+		if err := r.Get(ctx, types.NamespacedName{Name: target.Auth.SecretName, Namespace: image.Namespace}, s); err != nil {
+			return nil, nil, nil, err
+		}
+		secrets[fmt.Sprintf("targets/%s", target.Auth.SecretName)] = s
+	}
+	return image, imt, secrets, nil
 }

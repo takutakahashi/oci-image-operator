@@ -37,6 +37,16 @@ spec:
             properties:
               repository:
                 properties:
+                  auth:
+                    properties:
+                      secretName:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                    - secretName
+                    - type
+                    type: object
                   tagPolicies:
                     items:
                       properties:
