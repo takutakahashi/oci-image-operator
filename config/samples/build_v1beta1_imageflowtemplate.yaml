@@ -1,0 +1,6 @@
+apiVersion: build.takutakahashi.dev/v1beta1
+kind: ImageFlowTemplate
+metadata:
+  name: imageflowtemplate-sample
+spec:
+  # TODO(user): Add fields here
