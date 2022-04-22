@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/google/go-cmp/cmp"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 )
@@ -64,7 +63,7 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if diff := cmp.Diff(image, after); diff != "" {
+	if diff := imageutil.Diff(image, after); diff != "" {
 		if err := r.Update(ctx, after, &client.UpdateOptions{}); err != nil {
 			return ctrl.Result{}, err
 		}
