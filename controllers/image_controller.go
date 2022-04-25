@@ -23,7 +23,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -94,10 +93,10 @@ func (r *ImageReconciler) gatherResources(ctx context.Context, req ctrl.Request)
 	imtName := image.Spec.TemplateName
 	if imtName == "" {
 		imtName = image.Annotations[buildv1beta1.AnnotationImageFlowTemplateDefaultAll]
-		r.Recorder.Eventf(image, v1.EventTypeNormal, "UseDefaultTemplate", "use default template: %s", imtName)
+		r.Recorder.Eventf(image, corev1.EventTypeNormal, "UseDefaultTemplate", "use default template: %s", imtName)
 	}
 	if err := r.Get(ctx, types.NamespacedName{Name: imtName, Namespace: image.Namespace}, imt); err != nil {
-		r.Recorder.Event(image, v1.EventTypeWarning, "TemplateNotFound", err.Error())
+		r.Recorder.Event(image, corev1.EventTypeWarning, "TemplateNotFound", err.Error())
 		return nil, nil, nil, err
 	}
 	secrets := map[string]*corev1.Secret{}
