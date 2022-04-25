@@ -35,10 +35,10 @@ type ImageFlowTemplateSpec struct {
 	Upload ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
 }
 
-type PodTemplateApplyConfiguration corev1apply.PodTemplateApplyConfiguration
+type PodTemplateSpecApplyConfiguration corev1apply.PodTemplateSpecApplyConfiguration
 
-func (c *PodTemplateApplyConfiguration) DeepCopy() *PodTemplateApplyConfiguration {
-	out := new(PodTemplateApplyConfiguration)
+func (c *PodTemplateSpecApplyConfiguration) DeepCopy() *PodTemplateSpecApplyConfiguration {
+	out := new(PodTemplateSpecApplyConfiguration)
 	bytes, err := json.Marshal(c)
 	if err != nil {
 		panic("Failed to marshal")
@@ -51,7 +51,7 @@ func (c *PodTemplateApplyConfiguration) DeepCopy() *PodTemplateApplyConfiguratio
 }
 
 type ImageFlowTemplateSpecTemplate struct {
-	PodTemplate *PodTemplateApplyConfiguration `json:"podTemplate,omitempty"`
+	PodTemplate *PodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate

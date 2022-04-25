@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -37,9 +38,13 @@ var _ = Describe("Image controller", func() {
 				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
 					return err
 				}
+				deploy := &appsv1.Deployment{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-detect", objKey.Name), Namespace: objKey.Namespace},
-					&appsv1.Deployment{}); err != nil {
+					deploy); err != nil {
 					return err
+				}
+				if d := cmp.Diff(deploy.Spec.Template.Spec.Containers[0].Command, []string{"/entrypoint", "detect"}); d != "" {
+					return fmt.Errorf("diff detected. %s", d)
 				}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-check", objKey.Name), Namespace: objKey.Namespace},
 					&batchv1.Job{}); err != nil {
@@ -50,7 +55,7 @@ var _ = Describe("Image controller", func() {
 					return err
 				}
 				return nil
-			}).WithTimeout(500 * time.Millisecond).Should(Succeed())
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
 	})
 	//! [test]
@@ -87,7 +92,11 @@ func newImage() *buildv1beta1.Image {
 }
 
 func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
-	var template *buildv1beta1.PodTemplateApplyConfiguration = (*buildv1beta1.PodTemplateApplyConfiguration)(corev1apply.PodTemplate(name, "default"))
+	podTemplate := corev1apply.
+		PodTemplateSpec().WithSpec(corev1apply.PodSpec().
+		WithContainers(corev1apply.Container().
+			WithName("main").WithImage("busybox")))
+	var template *buildv1beta1.PodTemplateSpecApplyConfiguration = (*buildv1beta1.PodTemplateSpecApplyConfiguration)(podTemplate)
 	tmp := buildv1beta1.ImageFlowTemplateSpecTemplate{
 		PodTemplate: template,
 	}
