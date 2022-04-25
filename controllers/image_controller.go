@@ -20,7 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -54,12 +57,13 @@ type ImageReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	image, imt, secrets, err := r.gatherResources(ctx, req)
 	if err != nil {
-		return ctrl.Result{}, err
+		logger.Error(err, "failed to gather required resources")
+		return ctrl.Result{Requeue: true}, nil
 	}
-	after, err := imageutil.Ensure(image, imt, secrets)
+	after, err := imageutil.Ensure(ctx, r.Client, image, imt, secrets)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -75,6 +79,8 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (r *ImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&buildv1beta1.Image{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }
 
@@ -88,16 +94,19 @@ func (r *ImageReconciler) gatherResources(ctx context.Context, req ctrl.Request)
 	imtName := image.Spec.TemplateName
 	if imtName == "" {
 		imtName = image.Annotations[buildv1beta1.AnnotationImageFlowTemplateDefaultAll]
+		r.Recorder.Eventf(image, v1.EventTypeNormal, "UseDefaultTemplate", "use default template: %s", imtName)
 	}
 	if err := r.Get(ctx, types.NamespacedName{Name: imtName, Namespace: image.Namespace}, imt); err != nil {
+		r.Recorder.Event(image, v1.EventTypeWarning, "TemplateNotFound", err.Error())
 		return nil, nil, nil, err
 	}
 	secrets := map[string]*corev1.Secret{}
-	s := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: image.Spec.Repository.Auth.SecretName, Namespace: image.Namespace}, s); err != nil {
-		return nil, nil, nil, err
+	if image.Spec.Repository.Auth.SecretName != "" {
+		s := &corev1.Secret{}
+		if err := r.Get(ctx, types.NamespacedName{Name: image.Spec.Repository.Auth.SecretName, Namespace: image.Namespace}, s); err == nil {
+			secrets[fmt.Sprintf("repository/%s", image.Spec.Repository.Auth.SecretName)] = s
+		}
 	}
-	secrets[fmt.Sprintf("repository/%s", image.Spec.Repository.Auth.SecretName)] = s
 	for _, target := range image.Spec.Targets {
 		if target.Auth.SecretName == "" {
 			continue

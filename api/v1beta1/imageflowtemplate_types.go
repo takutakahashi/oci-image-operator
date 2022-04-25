@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 var AnnotationImageFlowTemplateDefaultDetect string = "build.takutakahashi.dev/default-template-detect"
@@ -33,8 +35,23 @@ type ImageFlowTemplateSpec struct {
 	Upload ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
 }
 
+type PodTemplateApplyConfiguration corev1apply.PodTemplateApplyConfiguration
+
+func (c *PodTemplateApplyConfiguration) DeepCopy() *PodTemplateApplyConfiguration {
+	out := new(PodTemplateApplyConfiguration)
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		panic("Failed to marshal")
+	}
+	err = json.Unmarshal(bytes, out)
+	if err != nil {
+		panic("Failed to unmarshal")
+	}
+	return out
+}
+
 type ImageFlowTemplateSpecTemplate struct {
-	PodSpec v1.PodSpec `json:"podSpec,omitempty"`
+	PodTemplate *PodTemplateApplyConfiguration `json:"podTemplate,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate
