@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -13,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,7 +28,7 @@ var _ = Describe("Image controller", func() {
 	})
 	//! [test]
 	Describe("create", func() {
-		It("should success", func() {
+		It("detect should success", func() {
 			ctx := context.TODO()
 			image := newImage()
 			inClusterImage := &buildv1beta1.Image{}
@@ -44,6 +46,17 @@ var _ = Describe("Image controller", func() {
 				}
 				if d := cmp.Diff(deploy.Spec.Template.Spec.Containers[0].Command, []string{"/entrypoint", "detect"}); d != "" {
 					return fmt.Errorf("diff detected. %s", d)
+				}
+				contained := []string{}
+				required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
+				for _, e := range deploy.Spec.Template.Spec.Containers[0].Env {
+					if slices.Contains(required, e.Name) {
+						contained = append(contained, e.Name)
+					}
+				}
+				sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
+				if !cmp.Equal(contained, required) {
+					return fmt.Errorf("required env is invalid. %s", contained)
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())

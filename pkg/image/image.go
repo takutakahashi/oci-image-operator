@@ -61,6 +61,7 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 			newContainer.ReadinessProbe = container.ReadinessProbe
 			newContainer.LivenessProbe = container.LivenessProbe
 			newContainer.SecurityContext = container.SecurityContext
+			newContainer.Env = append(newContainer.Env, container.Env...)
 			containers = append(containers, newContainer)
 		} else {
 			containers = append(containers, container)
