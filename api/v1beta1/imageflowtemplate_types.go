@@ -52,6 +52,7 @@ func (c *PodTemplateSpecApplyConfiguration) DeepCopy() *PodTemplateSpecApplyConf
 
 type ImageFlowTemplateSpecTemplate struct {
 	PodTemplate *PodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
+	RequiredEnv []string                           `json:"requiredEnv,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate

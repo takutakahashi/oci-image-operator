@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -45,14 +44,6 @@ var _ = Describe("Image controller", func() {
 				}
 				if d := cmp.Diff(deploy.Spec.Template.Spec.Containers[0].Command, []string{"/entrypoint", "detect"}); d != "" {
 					return fmt.Errorf("diff detected. %s", d)
-				}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-check", objKey.Name), Namespace: objKey.Namespace},
-					&batchv1.Job{}); err != nil {
-					return err
-				}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-upload", objKey.Name), Namespace: objKey.Namespace},
-					&batchv1.Job{}); err != nil {
-					return err
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -95,10 +86,13 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 	podTemplate := corev1apply.
 		PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithContainers(corev1apply.Container().
-			WithName("main").WithImage("busybox")))
+			WithName("main").WithImage("busybox").WithEnv(corev1apply.EnvVar().WithName("TEST_ENV").WithValue("TEST"))))
 	var template *buildv1beta1.PodTemplateSpecApplyConfiguration = (*buildv1beta1.PodTemplateSpecApplyConfiguration)(podTemplate)
 	tmp := buildv1beta1.ImageFlowTemplateSpecTemplate{
 		PodTemplate: template,
+		RequiredEnv: []string{
+			"TEST_ENV",
+		},
 	}
 	return &buildv1beta1.ImageFlowTemplate{
 		ObjectMeta: metav1.ObjectMeta{

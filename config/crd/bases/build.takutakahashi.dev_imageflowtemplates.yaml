@@ -3909,6 +3909,10 @@ spec:
                             type: array
                         type: object
                     type: object
+                  requiredEnv:
+                    items:
+                      type: string
+                    type: array
                 type: object
               detect:
                 properties:
@@ -7784,6 +7788,10 @@ spec:
                             type: array
                         type: object
                     type: object
+                  requiredEnv:
+                    items:
+                      type: string
+                    type: array
                 type: object
               upload:
                 properties:
@@ -11659,6 +11667,10 @@ spec:
                             type: array
                         type: object
                     type: object
+                  requiredEnv:
+                    items:
+                      type: string
+                    type: array
                 type: object
             type: object
           status:

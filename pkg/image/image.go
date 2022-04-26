@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -36,10 +38,18 @@ func Diff(before, after *buildv1beta1.Image) string {
 
 func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
 	var podTemplate *corev1apply.PodTemplateSpecApplyConfiguration = (*corev1apply.PodTemplateSpecApplyConfiguration)(template.Spec.Detect.PodTemplate)
-
 	containers := []corev1apply.ContainerApplyConfiguration{}
 	for _, container := range podTemplate.Spec.Containers {
 		if *container.Name == "main" {
+			containedEnv := []string{}
+			for _, e := range container.Env {
+				if e.Name != nil && slices.Contains(template.Spec.Detect.RequiredEnv, *e.Name) {
+					containedEnv = append(containedEnv, *e.Name)
+				}
+			}
+			if d := cmp.Diff(template.Spec.Detect.RequiredEnv, containedEnv, cmpopts.SortSlices(func(i, j string) bool { return i < j })); d != "" {
+				return nil, fmt.Errorf("requiredEnv and contained env are not match. diff = %s", d)
+			}
 			newContainer :=
 				*corev1apply.Container().
 					WithName(*container.Name).WithImage(*container.Image).WithCommand("/entrypoint", "detect").
