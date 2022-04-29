@@ -1,3 +1,6 @@
+vscode:
+  extensions:
+  - golang.Go
 tasks:
   - init: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
     command: source <(setup-envtest use -p env 1.23.x)
