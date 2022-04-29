@@ -4,7 +4,4 @@ vscode:
 tasks:
   - command: curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH) && chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/
   - command: go install honnef.co/go/tools/cmd/staticcheck@latest
-  - init: |
-      mkdir bin \
-      && ln -s /workspace/go/bin/controller-gen bin/ \ 
-      && ln -s /workspace/go/bin/setup-envtest bin/
+  - command: ln -s /workspace/go/bin bin
