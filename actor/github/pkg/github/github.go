@@ -1,0 +1,100 @@
+package github
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"strings"
+
+	"github.com/google/go-github/v43/github"
+)
+
+type GithubOpt struct {
+	BaseURL             string `env:"GITHUB_API_URL,default=https://api.github.com/"`
+	Org                 string `env:"GITHUB_ORG,required=true"`
+	Repo                string `env:"GITHUB_REPO,required=true"`
+	Branches            string `env:"TARGET_BRANCHES"`
+	Tags                string `env:"TARGET_TAGS"`
+	PersonalAccessToken string `env:"GITHUB_TOKEN"`
+}
+
+type Github struct {
+	c        *github.Client
+	opt      GithubOpt
+	branches []string
+	tags     []string
+	revs     map[string]string
+}
+
+func Init(opt GithubOpt) (*Github, error) {
+	c := github.NewClient(nil)
+	baseURL, err := url.Parse(opt.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.BaseURL = baseURL
+	b := strings.Split(opt.Branches, ",")
+	t := strings.Split(opt.Tags, ",")
+	return &Github{c: c, opt: opt, branches: b, tags: t, revs: map[string]string{}}, nil
+}
+
+func (g Github) BranchHash(ctx context.Context) (map[string]string, error) {
+	for _, b := range g.branches {
+		branch, _, err := g.c.Repositories.GetBranch(
+			ctx, g.opt.Org, g.opt.Repo, b, true)
+		if err != nil {
+			return nil, err
+		}
+		g.setBranchHash(b, branch.GetCommit().GetSHA())
+	}
+	return g.getBranchHashes(), nil
+}
+func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
+	tags, _, err := g.c.Repositories.ListTags(
+		ctx, g.opt.Org, g.opt.Repo, &github.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range g.tags {
+		for _, tag := range tags {
+			if tag.GetName() == b {
+				g.setTagHash(b, tag.GetCommit().GetSHA())
+			}
+		}
+	}
+	return g.getTagHashes(), nil
+}
+
+func (g *Github) setBranchHash(branch, hash string) {
+	g.setHash("branch", branch, hash)
+}
+func (g *Github) setTagHash(tag, hash string) {
+	g.setHash("tag", tag, hash)
+}
+
+func (g *Github) setHash(t, v, hash string) {
+	g.revs[fmt.Sprintf("%s/%s", t, v)] = hash
+
+}
+
+func (g *Github) getBranchHashes() map[string]string {
+	return g.getHashes("branch")
+}
+
+func (g *Github) getTagHashes() map[string]string {
+	return g.getHashes("tag")
+}
+
+func (g *Github) getHashes(t string) map[string]string {
+	ret := map[string]string{}
+	for k, v := range g.revs {
+		if strings.Contains(k, t) {
+		}
+		ret[k] = v
+	}
+	return ret
+
+}
