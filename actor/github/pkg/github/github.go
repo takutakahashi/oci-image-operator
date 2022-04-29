@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -16,6 +17,7 @@ type GithubOpt struct {
 	Branches            string `env:"TARGET_BRANCHES"`
 	Tags                string `env:"TARGET_TAGS"`
 	PersonalAccessToken string `env:"GITHUB_TOKEN"`
+	HTTPClient          *http.Client
 }
 
 type Github struct {
@@ -27,7 +29,7 @@ type Github struct {
 }
 
 func Init(opt GithubOpt) (*Github, error) {
-	c := github.NewClient(nil)
+	c := github.NewClient(opt.HTTPClient)
 	baseURL, err := url.Parse(opt.BaseURL)
 	if err != nil {
 		return nil, err
@@ -92,8 +94,8 @@ func (g *Github) getHashes(t string) map[string]string {
 	ret := map[string]string{}
 	for k, v := range g.revs {
 		if strings.Contains(k, t) {
+			ret[strings.TrimLeft(k, fmt.Sprintf("%s/", t))] = v
 		}
-		ret[k] = v
 	}
 	return ret
 
