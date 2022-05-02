@@ -75,6 +75,7 @@ func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	g.setTagHash("latest", tags[0].GetCommit().GetSHA())
 	for _, b := range g.tags {
 		for _, tag := range tags {
 			if tag.GetName() == b {
