@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
 )
 
@@ -44,7 +45,7 @@ func (d *Detect) Execute() error {
 	if err != nil {
 		return err
 	}
-	df := DetectFile{
+	df := types.DetectFile{
 		Branches: branches,
 		Tags:     tags,
 	}
@@ -55,9 +56,4 @@ func (d *Detect) Execute() error {
 	_, err = d.w.Write(buf)
 	return err
 
-}
-
-type DetectFile struct {
-	Branches map[string]string `json:"branches"`
-	Tags     map[string]string `json:"tags"`
 }

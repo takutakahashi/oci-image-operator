@@ -5,9 +5,11 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 )
 
 // detectCmd represents the detect command
@@ -21,7 +23,13 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("detect called")
+		d, err := detect.Init(nil, os.Getenv("WATCH_FILE_PATH"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := d.Run(); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
