@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Netflix/go-env"
 	"github.com/google/go-github/v43/github"
 )
 
@@ -22,18 +23,22 @@ type GithubOpt struct {
 
 type Github struct {
 	c        *github.Client
-	opt      GithubOpt
+	opt      *GithubOpt
 	branches []string
 	tags     []string
 	revs     map[string]string
 }
 
-func Init(opt GithubOpt) (*Github, error) {
+func Init(opt *GithubOpt) (*Github, error) {
+	if opt.Org == "" {
+		newOpt, err := GenOpt(opt.HTTPClient)
+		if err != nil {
+			return nil, err
+		}
+		opt = newOpt
+	}
 	c := github.NewClient(opt.HTTPClient)
 	baseURL, err := url.Parse(opt.BaseURL)
-	if err != nil {
-		return nil, err
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +46,16 @@ func Init(opt GithubOpt) (*Github, error) {
 	b := strings.Split(opt.Branches, ",")
 	t := strings.Split(opt.Tags, ",")
 	return &Github{c: c, opt: opt, branches: b, tags: t, revs: map[string]string{}}, nil
+}
+
+func GenOpt(httpClient *http.Client) (*GithubOpt, error) {
+	var opt GithubOpt
+	_, err := env.UnmarshalFromEnviron(&opt)
+	if err != nil {
+		return nil, err
+	}
+	opt.HTTPClient = httpClient
+	return &opt, err
 }
 
 func (g Github) BranchHash(ctx context.Context) (map[string]string, error) {

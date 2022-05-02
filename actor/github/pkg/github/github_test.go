@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"net/http"
+	"os"
 	"reflect"
 	"testing"
 
@@ -43,8 +44,11 @@ func mockhttp() *http.Client {
 }
 
 func TestGithub_BranchHash(t *testing.T) {
+	os.Setenv("GITHUB_ORG", "test")
+	os.Setenv("GITHUB_REPO", "test")
+	os.Setenv("TARGET_BRANCHES", "master")
 	type fields struct {
-		opt GithubOpt
+		opt *GithubOpt
 	}
 	type args struct {
 		ctx context.Context
@@ -59,12 +63,26 @@ func TestGithub_BranchHash(t *testing.T) {
 		{
 			name: "ok",
 			fields: fields{
-				opt: GithubOpt{
+				opt: &GithubOpt{
 					BaseURL:    "https://api.github.com/",
 					Org:        "test",
 					Repo:       "test",
 					Branches:   "master",
 					Tags:       "",
+					HTTPClient: mockhttp(),
+				},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			want: map[string]string{
+				"master": "master123master",
+			},
+		},
+		{
+			name: "ok_env",
+			fields: fields{
+				opt: &GithubOpt{
 					HTTPClient: mockhttp(),
 				},
 			},
@@ -96,8 +114,11 @@ func TestGithub_BranchHash(t *testing.T) {
 }
 
 func TestGithub_TagHash(t *testing.T) {
+	os.Setenv("GITHUB_ORG", "test")
+	os.Setenv("GITHUB_REPO", "test")
+	os.Setenv("TARGET_TAGS", "v0.1")
 	type fields struct {
-		opt GithubOpt
+		opt *GithubOpt
 	}
 	type args struct {
 		ctx context.Context
@@ -112,12 +133,26 @@ func TestGithub_TagHash(t *testing.T) {
 		{
 			name: "ok",
 			fields: fields{
-				opt: GithubOpt{
+				opt: &GithubOpt{
 					BaseURL:    "https://api.github.com/",
 					Org:        "test",
 					Repo:       "test",
 					Branches:   "",
 					Tags:       "v0.1",
+					HTTPClient: mockhttp(),
+				},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			want: map[string]string{
+				"v0.1": "00001111",
+			},
+		},
+		{
+			name: "ok_env",
+			fields: fields{
+				opt: &GithubOpt{
 					HTTPClient: mockhttp(),
 				},
 			},
