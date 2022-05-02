@@ -55,8 +55,7 @@ func TestDetect_Execute(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	actual := ""
-	buf := bytes.NewBufferString(actual)
+	buf := bytes.Buffer{}
 
 	type fields struct {
 		gh *mygithub.Github
@@ -72,7 +71,7 @@ func TestDetect_Execute(t *testing.T) {
 			name: "ok",
 			fields: fields{
 				gh: gh,
-				w:  buf,
+				w:  &buf,
 			},
 			wantErr: false,
 			wantBuf: "",
@@ -88,7 +87,7 @@ func TestDetect_Execute(t *testing.T) {
 				t.Errorf("Detect.Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if diff := cmp.Diff(actual, tt.wantBuf); diff != "" {
+			if diff := cmp.Diff(buf.String(), tt.wantBuf); diff != "" {
 				t.Errorf("Detect.Execute() diff = %v", diff)
 			}
 		})

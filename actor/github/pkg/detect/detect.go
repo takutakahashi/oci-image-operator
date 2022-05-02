@@ -50,8 +50,8 @@ func (d *Detect) Execute() error {
 		Tags:          tags,
 		LastUpdatedAt: time.Now(),
 	}
-	buf := []byte{}
-	if err := json.Unmarshal(buf, &df); err != nil {
+	buf, err := json.Marshal(&df)
+	if err != nil {
 		return err
 	}
 	_, err = d.w.Write(buf)
