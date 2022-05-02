@@ -17,11 +17,13 @@ var detectCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := detect.NewDetect("/tmp/github-detect")
+		d, err := detect.NewDetect("/tmp/github-actor/detect")
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Fatal(d.Execute())
+		if err := d.Execute(); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 

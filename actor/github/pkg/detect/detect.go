@@ -24,7 +24,7 @@ func NewDetect(outputFilePath string) (*Detect, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Base(outputFilePath), 0644); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputFilePath), 0755); err != nil {
 		return nil, err
 	}
 	f, err := os.Create(outputFilePath)
