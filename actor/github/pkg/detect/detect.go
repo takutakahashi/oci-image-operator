@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
 )
@@ -46,9 +45,8 @@ func (d *Detect) Execute() error {
 		return err
 	}
 	df := DetectFile{
-		Branches:      branches,
-		Tags:          tags,
-		LastUpdatedAt: time.Now(),
+		Branches: branches,
+		Tags:     tags,
 	}
 	buf, err := json.Marshal(&df)
 	if err != nil {
@@ -60,7 +58,6 @@ func (d *Detect) Execute() error {
 }
 
 type DetectFile struct {
-	Branches      map[string]string `json:"branches"`
-	Tags          map[string]string `json:"tags"`
-	LastUpdatedAt time.Time         `json:"lastUpdatedAt"`
+	Branches map[string]string `json:"branches"`
+	Tags     map[string]string `json:"tags"`
 }

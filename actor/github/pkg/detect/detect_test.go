@@ -74,7 +74,7 @@ func TestDetect_Execute(t *testing.T) {
 				w:  &buf,
 			},
 			wantErr: false,
-			wantBuf: "",
+			wantBuf: `{"branches":{"master":"master123master"},"tags":{}}`,
 		},
 	}
 	for _, tt := range tests {
