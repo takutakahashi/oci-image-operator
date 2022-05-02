@@ -13,4 +13,12 @@ resources:
   kind: Image
   path: github.com/takutakahashi/oci-image-operator/api/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: takutakahashi.dev
+  group: build
+  kind: ImageFlowTemplate
+  path: github.com/takutakahashi/oci-image-operator/api/v1beta1
+  version: v1beta1
 version: "3"

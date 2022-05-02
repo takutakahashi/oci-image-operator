@@ -1,21 +1,13 @@
----
+# permissions for end users to edit imageflowtemplates.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: manager-role
+  name: imageflowtemplate-editor-role
 rules:
 - apiGroups:
   - build.takutakahashi.dev
   resources:
   - imageflowtemplates
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - build.takutakahashi.dev
-  resources:
-  - images
   verbs:
   - create
   - delete
@@ -27,14 +19,6 @@ rules:
 - apiGroups:
   - build.takutakahashi.dev
   resources:
-  - images/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - build.takutakahashi.dev
-  resources:
-  - images/status
+  - imageflowtemplates/status
   verbs:
   - get
-  - patch
-  - update

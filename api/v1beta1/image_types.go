@@ -23,14 +23,18 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// 3 phase: check, exists, upload
+
 // ImageSpec defines the desired state of Image
 type ImageSpec struct {
-	Repository ImageRepository `json:"repository"`
-	Targets    []ImageTarget   `json:"targets"`
+	TemplateName string          `json:"templateName,omitempty"`
+	Repository   ImageRepository `json:"repository"`
+	Targets      []ImageTarget   `json:"targets"`
 }
 
 type ImageRepository struct {
 	URL         string           `json:"url"`
+	Auth        ImageAuth        `json:"auth,omitempty"`
 	TagPolicies []ImageTagPolicy `json:"tagPolicies"`
 }
 

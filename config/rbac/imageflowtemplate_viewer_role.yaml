@@ -1,0 +1,20 @@
+# permissions for end users to view imageflowtemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: imageflowtemplate-viewer-role
+rules:
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
+  - imageflowtemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - build.takutakahashi.dev
+  resources:
+  - imageflowtemplates/status
+  verbs:
+  - get

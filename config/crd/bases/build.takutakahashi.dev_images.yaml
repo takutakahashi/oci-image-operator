@@ -35,10 +35,60 @@ spec:
           spec:
             description: ImageSpec defines the desired state of Image
             properties:
-              foo:
-                description: Foo is an example field of Image. Edit image_types.go
-                  to remove/update
+              repository:
+                properties:
+                  auth:
+                    properties:
+                      secretName:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                    - secretName
+                    - type
+                    type: object
+                  tagPolicies:
+                    items:
+                      properties:
+                        policy:
+                          type: string
+                        revision:
+                          type: string
+                      required:
+                      - policy
+                      - revision
+                      type: object
+                    type: array
+                  url:
+                    type: string
+                required:
+                - tagPolicies
+                - url
+                type: object
+              targets:
+                items:
+                  properties:
+                    auth:
+                      properties:
+                        secretName:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - secretName
+                      - type
+                      type: object
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              templateName:
                 type: string
+            required:
+            - repository
+            - targets
             type: object
           status:
             description: ImageStatus defines the observed state of Image
