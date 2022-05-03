@@ -46,7 +46,7 @@ func (d *Detect) Run() error {
 				if !ok {
 					return
 				}
-				if err := d.WriteToResource(); err != nil {
+				if err := d.UpdateImage(); err != nil {
 					logrus.Error(err)
 				}
 			case err, ok := <-watcher.Errors:
@@ -66,7 +66,7 @@ func (d *Detect) Run() error {
 	return nil
 }
 
-func (d *Detect) WriteToResource() error {
+func (d *Detect) UpdateImage() error {
 	return nil
 }
 
