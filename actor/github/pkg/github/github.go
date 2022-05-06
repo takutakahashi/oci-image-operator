@@ -9,6 +9,7 @@ import (
 
 	"github.com/Netflix/go-env"
 	"github.com/google/go-github/v43/github"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 )
 
 type GithubOpt struct {
@@ -75,7 +76,8 @@ func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	g.setTagHash("latest", tags[0].GetCommit().GetSHA())
+	g.setTagHash(types.MapKeyLatestTagHash, tags[0].GetCommit().GetSHA())
+	g.setTagHash(types.MapKeyLatestTagName, tags[0].GetName())
 	for _, b := range g.tags {
 		for _, tag := range tags {
 			if tag.GetName() == b {
