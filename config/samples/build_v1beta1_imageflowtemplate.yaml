@@ -3,4 +3,15 @@ kind: ImageFlowTemplate
 metadata:
   name: imageflowtemplate-sample
 spec:
-  # TODO(user): Add fields here
+  detect:
+    actor:
+      name: main
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"
+  check:
+    actor:
+      name: main
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"
+  upload:
+    actor:
+      name: main
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"

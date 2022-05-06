@@ -3,4 +3,11 @@ kind: Image
 metadata:
   name: image-sample
 spec:
-  # TODO(user): Add fields here
+  templateName: imageflowtemplate-sample
+  repository:
+    url: https://github.com/takutakahashi/testbed.git
+    tagPolicies:
+    - policy: branchHash
+      revision: master
+  targets:
+  - name: ghcr.io/takutakahashi/testbed
