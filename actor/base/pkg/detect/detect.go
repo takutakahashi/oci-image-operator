@@ -100,9 +100,9 @@ func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
 	for _, policy := range image.Spec.Repository.TagPolicies {
 		switch policy.Policy {
 		case buildv1beta1.ImageTagPolicyTypeTagHash:
-			policy.ResolvedRevision = detectFile.Tags["latest/hash"]
+			policy.ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagHash]
 		case buildv1beta1.ImageTagPolicyTypeTagName:
-			policy.ResolvedRevision = detectFile.Tags["latest/name"]
+			policy.ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagName]
 		case buildv1beta1.ImageTagPolicyTypeBranchHash:
 			policy.ResolvedRevision = detectFile.Branches[policy.Revision]
 		case buildv1beta1.ImageTagPolicyTypeBranchName:
