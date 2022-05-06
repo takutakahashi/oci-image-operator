@@ -39,32 +39,10 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	if err != nil {
 		return nil, err
 	}
-	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deploy)
-	if err != nil {
+	if err := apply(ctx, c, deploy); err != nil {
 		return nil, err
 	}
-	patch := &unstructured.Unstructured{
-		Object: obj,
-	}
-	var current appsv1.Deployment
-	err = c.Get(ctx, client.ObjectKey{Namespace: image.Namespace, Name: fmt.Sprintf("%s-detect", image.Name)}, &current)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-
-	currApplyConfig, err := appsv1apply.ExtractDeployment(&current, "image-controller")
-	if err != nil {
-		return nil, err
-	}
-	if equality.Semantic.DeepEqual(deploy, currApplyConfig) {
-		return image, nil
-	}
-
-	err = c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
-		FieldManager: "image-controller",
-		Force:        pointer.Bool(true),
-	})
-	return image, err
+	return image, nil
 }
 
 func EnsureCheck(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -120,4 +98,32 @@ func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate) *corev1app
 	ret.Command = []string{"/entrypoint", "detect"}
 	ret.VolumeMounts = append(ret.VolumeMounts, *corev1apply.VolumeMount().WithMountPath("/tmp/actor-output").WithName("tmpdir"))
 	return ret
+}
+
+func apply(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentApplyConfiguration) error {
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deploy)
+	if err != nil {
+		return err
+	}
+	patch := &unstructured.Unstructured{
+		Object: obj,
+	}
+	var current appsv1.Deployment
+	err = c.Get(ctx, client.ObjectKey{Namespace: *deploy.Namespace, Name: *deploy.Name}, &current)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	currApplyConfig, err := appsv1apply.ExtractDeployment(&current, "image-controller")
+	if err != nil {
+		return err
+	}
+	if equality.Semantic.DeepEqual(deploy, currApplyConfig) {
+		return nil
+	}
+
+	return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
+		FieldManager: "image-controller",
+		Force:        pointer.Bool(true),
+	})
 }
