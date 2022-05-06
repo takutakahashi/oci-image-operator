@@ -5,6 +5,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -27,7 +28,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := d.Run(); err != nil {
+		if err := d.Run(context.TODO()); err != nil {
 			log.Fatal(err)
 		}
 	},

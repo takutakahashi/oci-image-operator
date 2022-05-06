@@ -24,6 +24,7 @@ import (
 
 type Detect struct {
 	c         client.Client
+	ch        chan bool
 	watchPath string
 	f         io.Reader
 }
@@ -42,20 +43,22 @@ func Init(cfg *rest.Config, watchPath string) (*Detect, error) {
 	}, nil
 }
 
-func (d *Detect) Run() error {
+func (d *Detect) Run(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 	done := make(chan bool)
+	d.ch = done
 	go func() {
 		for {
 			select {
-			case _, ok := <-watcher.Events:
+			case e, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
-				if _, err := d.UpdateImage(); err != nil {
+				logrus.Trace(e)
+				if _, err := d.UpdateImage(ctx); err != nil {
 					logrus.Error(err)
 				}
 			case err, ok := <-watcher.Errors:
@@ -75,8 +78,13 @@ func (d *Detect) Run() error {
 	return nil
 }
 
-func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
-	ctx := context.TODO()
+func (d *Detect) Stop() {
+	logrus.Info("Stopping worker")
+	d.ch <- true
+}
+
+func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
+	logrus.Trace(d.watchPath)
 	if d.f == nil {
 		f, err := os.Open(d.watchPath)
 		if err != nil {
@@ -88,7 +96,7 @@ func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	logrus.Trace(detectFile)
 	image := buildv1beta1.Image{}
 	nn := ktypes.NamespacedName{
 		Namespace: os.Getenv("IMAGE_NAMESPACE"),
@@ -115,12 +123,14 @@ func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
 		newPolicy = append(newPolicy, policy)
 	}
 	diff := cmp.Diff(image.Spec.Repository.TagPolicies, newPolicy)
+	logrus.Trace(diff)
 	if diff != "" {
 		newImage.Spec.Repository.TagPolicies = newPolicy
 		if err := d.c.Update(ctx, newImage); err != nil {
 			return nil, err
 		}
 	}
+	logrus.Trace("image updated")
 	return newImage, nil
 }
 
@@ -139,7 +149,6 @@ func parseJSON(r io.Reader) (*types.DetectFile, error) {
 	for scanner.Scan() {
 		buf = append(buf, scanner.Bytes()...)
 	}
-	logrus.Info(buf)
 	file := &types.DetectFile{}
 	if err := json.Unmarshal(buf, file); err != nil {
 		return nil, err
