@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 )
@@ -24,10 +25,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := detect.Init(nil, os.Getenv("WATCH_FILE_PATH"))
+		logrus.Info("detect starting")
+		d, err := detect.Init(nil, detect.DetectOpt{
+			WatchPath:      os.Getenv("WATCH_FILE_PATH"),
+			ImageName:      os.Getenv("IMAGE_NAME"),
+			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
+		logrus.Info(err)
 		if err := d.Run(context.TODO()); err != nil {
 			log.Fatal(err)
 		}

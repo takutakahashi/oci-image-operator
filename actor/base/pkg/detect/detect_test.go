@@ -111,9 +111,13 @@ func TestDetect_UpdateImage(t *testing.T) {
 				f = strings.NewReader(tt.fields.json)
 			}
 			d := &Detect{
-				c:         tt.fields.c,
-				watchPath: tt.fields.watchPath,
-				f:         f,
+				c: tt.fields.c,
+				f: f,
+				opt: DetectOpt{
+					WatchPath:      tt.fields.watchPath,
+					ImageName:      "test",
+					ImageNamespace: "default",
+				},
 			}
 			got, err := d.UpdateImage(context.TODO())
 			if (err != nil) != tt.wantErr {
@@ -168,8 +172,12 @@ func TestDetect_Run(t *testing.T) {
 			}
 			defer os.Remove(f.Name())
 			d := &Detect{
-				c:         c,
-				watchPath: f.Name(),
+				c: c,
+				opt: DetectOpt{
+					WatchPath:      f.Name(),
+					ImageName:      "test",
+					ImageNamespace: "default",
+				},
 			}
 			var wg sync.WaitGroup
 			wg.Add(1)

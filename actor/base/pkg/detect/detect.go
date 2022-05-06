@@ -23,13 +23,19 @@ import (
 )
 
 type Detect struct {
-	c         client.Client
-	ch        chan bool
-	watchPath string
-	f         io.Reader
+	c   client.Client
+	ch  chan bool
+	f   io.Reader
+	opt DetectOpt
 }
 
-func Init(cfg *rest.Config, watchPath string) (*Detect, error) {
+type DetectOpt struct {
+	ImageName      string
+	ImageNamespace string
+	WatchPath      string
+}
+
+func Init(cfg *rest.Config, opt DetectOpt) (*Detect, error) {
 	if cfg == nil {
 		cfg = ctrl.GetConfigOrDie()
 	}
@@ -38,8 +44,8 @@ func Init(cfg *rest.Config, watchPath string) (*Detect, error) {
 		return nil, err
 	}
 	return &Detect{
-		c:         c,
-		watchPath: watchPath,
+		c:   c,
+		opt: opt,
 	}, nil
 }
 
@@ -70,7 +76,7 @@ func (d *Detect) Run(ctx context.Context) error {
 		}
 	}()
 
-	watcher.Add(d.watchPath)
+	watcher.Add(d.opt.WatchPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,9 +90,9 @@ func (d *Detect) Stop() {
 }
 
 func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
-	logrus.Trace(d.watchPath)
+	logrus.Trace(d.opt.WatchPath)
 	if d.f == nil {
-		f, err := os.Open(d.watchPath)
+		f, err := os.Open(d.opt.WatchPath)
 		if err != nil {
 			return nil, err
 		}
@@ -99,8 +105,8 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 	logrus.Trace(detectFile)
 	image := buildv1beta1.Image{}
 	nn := ktypes.NamespacedName{
-		Namespace: os.Getenv("IMAGE_NAMESPACE"),
-		Name:      os.Getenv("IMAGE_NAME"),
+		Namespace: d.opt.ImageNamespace,
+		Name:      d.opt.ImageName,
 	}
 	if err := d.c.Get(ctx, nn, &image); err != nil {
 		return nil, err
