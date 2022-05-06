@@ -2,14 +2,17 @@ package detect
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"log"
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	"gopkg.in/fsnotify.v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -20,6 +23,7 @@ import (
 type Detect struct {
 	c         client.Client
 	watchPath string
+	f         io.Reader
 }
 
 func Init(cfg *rest.Config, watchPath string) (*Detect, error) {
@@ -71,15 +75,45 @@ func (d *Detect) Run() error {
 
 func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
 	ctx := context.TODO()
+	if d.f == nil {
+		f, err := os.Open(d.watchPath)
+		if err != nil {
+			return nil, err
+		}
+		d.f = f
+	}
+	detectFile, err := parseJSON(d.f)
+	if err != nil {
+		return nil, err
+	}
+
 	image := buildv1beta1.Image{}
-	nn := types.NamespacedName{
+	nn := ktypes.NamespacedName{
 		Namespace: os.Getenv("IMAGE_NAMESPACE"),
 		Name:      os.Getenv("IMAGE_NAME"),
 	}
 	if err := d.c.Get(ctx, nn, &image); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	newImage := image.DeepCopy()
+	newPolicy := []buildv1beta1.ImageTagPolicy{}
+	for _, policy := range image.Spec.Repository.TagPolicies {
+		switch policy.Policy {
+		case buildv1beta1.ImageTagPolicyTypeTagHash:
+			policy.ResolvedRevision = detectFile.Tags["latest/hash"]
+		case buildv1beta1.ImageTagPolicyTypeTagName:
+			policy.ResolvedRevision = detectFile.Tags["latest/name"]
+		case buildv1beta1.ImageTagPolicyTypeBranchHash:
+			policy.ResolvedRevision = detectFile.Branches[policy.Revision]
+		case buildv1beta1.ImageTagPolicyTypeBranchName:
+			policy.ResolvedRevision = policy.Revision
+		default:
+			policy.ResolvedRevision = policy.Revision
+		}
+		newPolicy = append(newPolicy, policy)
+	}
+	newImage.Spec.Repository.TagPolicies = newPolicy
+	return newImage, nil
 }
 
 func genClient(cfg *rest.Config) (client.Client, error) {
@@ -89,4 +123,16 @@ func genClient(cfg *rest.Config) (client.Client, error) {
 	return client.New(cfg, client.Options{
 		Scheme: scheme,
 	})
+}
+
+func parseJSON(r io.Reader) (*types.DetectFile, error) {
+	buf := []byte{}
+	if _, err := r.Read(buf); err != nil {
+		return nil, err
+	}
+	file := &types.DetectFile{}
+	if err := json.Unmarshal(buf, file); err != nil {
+		return nil, err
+	}
+	return file, nil
 }

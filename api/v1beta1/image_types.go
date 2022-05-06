@@ -39,8 +39,9 @@ type ImageRepository struct {
 }
 
 type ImageTagPolicy struct {
-	Policy   ImageTagPolicyType `json:"policy"`
-	Revision string             `json:"revision"`
+	Policy           ImageTagPolicyType `json:"policy"`
+	Revision         string             `json:"revision"`
+	ResolvedRevision string             `json:"resolvedRevision"`
 }
 
 type ImageTagPolicyType string
