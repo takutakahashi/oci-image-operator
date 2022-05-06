@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -44,19 +45,29 @@ var _ = Describe("Image controller", func() {
 					deploy); err != nil {
 					return err
 				}
-				if d := cmp.Diff(deploy.Spec.Template.Spec.Containers[0].Command, []string{"/entrypoint", "detect"}); d != "" {
-					return fmt.Errorf("diff detected. %s", d)
+				if deploy.Spec.Template.Spec.ServiceAccountName != "actor-detect" {
+					return errors.New("wrong service account name")
 				}
-				contained := []string{}
-				required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
-				for _, e := range deploy.Spec.Template.Spec.Containers[0].Env {
-					if slices.Contains(required, e.Name) {
-						contained = append(contained, e.Name)
+				for _, c := range deploy.Spec.Template.Spec.Containers {
+					if c.Name == "main" {
+						if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
+							return fmt.Errorf("diff detected. %s", d)
+						}
+
+						contained := []string{}
+						required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
+						for _, e := range c.Env {
+							if slices.Contains(required, e.Name) {
+								contained = append(contained, e.Name)
+							}
+						}
+						sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
+						if !cmp.Equal(contained, required) {
+							return fmt.Errorf("required env is invalid. %s", contained)
+						}
+						break
 					}
-				}
-				sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
-				if !cmp.Equal(contained, required) {
-					return fmt.Errorf("required env is invalid. %s", contained)
+
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -96,13 +107,17 @@ func newImage() *buildv1beta1.Image {
 }
 
 func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
-	podTemplate := corev1apply.
-		PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithContainers(corev1apply.Container().
-			WithName("main").WithImage("busybox").WithEnv(corev1apply.EnvVar().WithName("TEST_ENV").WithValue("TEST"))))
-	var template *buildv1beta1.PodTemplateSpecApplyConfiguration = (*buildv1beta1.PodTemplateSpecApplyConfiguration)(podTemplate)
+	actor := (*buildv1beta1.ContainerApplyConfiguration)(corev1apply.Container().
+		WithEnv(
+			corev1apply.EnvVar().WithName("TEST_ENV").WithValue("test"),
+			corev1apply.EnvVar().WithName("REPOSITORY").WithValue("test"),
+			corev1apply.EnvVar().WithName("AUTH_SECRET_NAME").WithValue("test"),
+		).
+		WithImage("ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"))
+	volumes := []buildv1beta1.VolumeApplyConfiguration{}
 	tmp := buildv1beta1.ImageFlowTemplateSpecTemplate{
-		PodTemplate: template,
+		Actor:   actor,
+		Volumes: volumes,
 		RequiredEnv: []string{
 			"TEST_ENV",
 		},

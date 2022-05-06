@@ -52,10 +52,13 @@ spec:
                       properties:
                         policy:
                           type: string
+                        resolvedRevision:
+                          type: string
                         revision:
                           type: string
                       required:
                       - policy
+                      - resolvedRevision
                       - revision
                       type: object
                     type: array

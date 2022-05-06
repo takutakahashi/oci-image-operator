@@ -35,10 +35,25 @@ type ImageFlowTemplateSpec struct {
 	Upload ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
 }
 
-type PodTemplateSpecApplyConfiguration corev1apply.PodTemplateSpecApplyConfiguration
+type ContainerApplyConfiguration corev1apply.ContainerApplyConfiguration
 
-func (c *PodTemplateSpecApplyConfiguration) DeepCopy() *PodTemplateSpecApplyConfiguration {
-	out := new(PodTemplateSpecApplyConfiguration)
+func (c *ContainerApplyConfiguration) DeepCopy() *ContainerApplyConfiguration {
+	out := new(ContainerApplyConfiguration)
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		panic("Failed to marshal")
+	}
+	err = json.Unmarshal(bytes, out)
+	if err != nil {
+		panic("Failed to unmarshal")
+	}
+	return out
+}
+
+type VolumeApplyConfiguration corev1apply.VolumeApplyConfiguration
+
+func (c *VolumeApplyConfiguration) DeepCopy() *VolumeApplyConfiguration {
+	out := new(VolumeApplyConfiguration)
 	bytes, err := json.Marshal(c)
 	if err != nil {
 		panic("Failed to marshal")
@@ -51,8 +66,9 @@ func (c *PodTemplateSpecApplyConfiguration) DeepCopy() *PodTemplateSpecApplyConf
 }
 
 type ImageFlowTemplateSpecTemplate struct {
-	PodTemplate *PodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
-	RequiredEnv []string                           `json:"requiredEnv,omitempty"`
+	Actor       *ContainerApplyConfiguration `json:"actor,omitempty"`
+	Volumes     []VolumeApplyConfiguration   `json:"volumes,omitempty"`
+	RequiredEnv []string                     `json:"requiredEnv,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate

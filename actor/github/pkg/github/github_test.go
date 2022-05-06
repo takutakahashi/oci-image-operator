@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-github/v43/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	"k8s.io/utils/pointer"
 )
 
@@ -146,8 +147,9 @@ func TestGithub_TagHash(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			want: map[string]string{
-				"latest": "00001111",
-				"v0.1":   "00001111",
+				types.MapKeyLatestTagHash: "00001111",
+				types.MapKeyLatestTagName: "v0.1",
+				"v0.1":                    "00001111",
 			},
 		},
 		{
@@ -166,7 +168,8 @@ func TestGithub_TagHash(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			want: map[string]string{
-				"latest": "00001111",
+				types.MapKeyLatestTagHash: "00001111",
+				types.MapKeyLatestTagName: "v0.1",
 			},
 		},
 		{
@@ -180,8 +183,9 @@ func TestGithub_TagHash(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			want: map[string]string{
-				"latest": "00001111",
-				"v0.1":   "00001111",
+				types.MapKeyLatestTagHash: "00001111",
+				types.MapKeyLatestTagName: "v0.1",
+				"v0.1":                    "00001111",
 			},
 		},
 	}
