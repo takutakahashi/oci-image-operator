@@ -1,12 +1,14 @@
 package detect
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"os"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -112,7 +114,13 @@ func (d *Detect) UpdateImage() (*buildv1beta1.Image, error) {
 		}
 		newPolicy = append(newPolicy, policy)
 	}
-	newImage.Spec.Repository.TagPolicies = newPolicy
+	diff := cmp.Diff(image.Spec.Repository.TagPolicies, newPolicy)
+	if diff != "" {
+		newImage.Spec.Repository.TagPolicies = newPolicy
+		if err := d.c.Update(ctx, newImage); err != nil {
+			return nil, err
+		}
+	}
 	return newImage, nil
 }
 
@@ -126,10 +134,12 @@ func genClient(cfg *rest.Config) (client.Client, error) {
 }
 
 func parseJSON(r io.Reader) (*types.DetectFile, error) {
+	scanner := bufio.NewScanner(r)
 	buf := []byte{}
-	if _, err := r.Read(buf); err != nil {
-		return nil, err
+	for scanner.Scan() {
+		buf = append(buf, scanner.Bytes()...)
 	}
+	logrus.Info(buf)
 	file := &types.DetectFile{}
 	if err := json.Unmarshal(buf, file); err != nil {
 		return nil, err
