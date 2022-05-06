@@ -66,11 +66,12 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithServiceAccountName("oci-image-operator-actor-detect").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(),
+			baseContainer(image.Name, image.Namespace),
 			actorContainer(&template.Spec.Detect),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
+		// TODO: add owner reference
 		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
 		WithSpec(appsv1apply.DeploymentSpec().
@@ -83,11 +84,15 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 	return deploy, nil
 }
 
-func baseContainer() *corev1apply.ContainerApplyConfiguration {
+func baseContainer(name, namespace string) *corev1apply.ContainerApplyConfiguration {
 	return corev1apply.Container().
 		WithName("update-image").
 		WithImage("ghcr.io/takutakahashi/oci-image-operator/actor-base:beta").
 		WithArgs("detect").
+		WithEnv(
+			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
+			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
+		).
 		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath("/tmp/actor-base").WithName("tmpdir"))
 
 }
