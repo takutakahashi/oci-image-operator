@@ -63,13 +63,13 @@ func setLabel(name string, b map[string]string) map[string]string {
 
 func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*appsv1apply.DeploymentApplyConfiguration, error) {
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithServiceAccountName("actor-detect").
+		WithServiceAccountName("oci-image-operator-actor-detect").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(),
 			actorContainer(&template.Spec.Detect),
 		))
-	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), image.Namespace).
+	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
 		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
