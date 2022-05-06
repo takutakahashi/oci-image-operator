@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -44,6 +45,9 @@ var _ = Describe("Image controller", func() {
 					deploy); err != nil {
 					return err
 				}
+				if deploy.Spec.Template.Spec.ServiceAccountName != "actor-detect" {
+					return errors.New("wrong service account name")
+				}
 				for _, c := range deploy.Spec.Template.Spec.Containers {
 					if c.Name == "main" {
 						if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
@@ -61,6 +65,7 @@ var _ = Describe("Image controller", func() {
 						if !cmp.Equal(contained, required) {
 							return fmt.Errorf("required env is invalid. %s", contained)
 						}
+						break
 					}
 
 				}
