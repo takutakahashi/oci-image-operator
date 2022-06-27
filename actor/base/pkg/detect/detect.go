@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"os"
 
 	"github.com/google/go-cmp/cmp"
@@ -49,7 +50,6 @@ func Init(cfg *rest.Config, opt DetectOpt) (*Detect, error) {
 }
 
 func (d *Detect) Run(ctx context.Context) error {
-	logrus.Infof("watching path: %s", d.opt.WatchPath)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -63,8 +63,7 @@ func (d *Detect) Run(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				logrus.Info(e)
-				// FIXME: WRITE op run and  kubernetes api is executed twice when file updated.
+				logrus.Trace(e)
 				if _, err := d.UpdateImage(ctx); err != nil {
 					logrus.Error(err)
 				}
@@ -79,7 +78,7 @@ func (d *Detect) Run(ctx context.Context) error {
 
 	watcher.Add(d.opt.WatchPath)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	<-done
 	return nil
@@ -91,22 +90,19 @@ func (d *Detect) Stop() {
 }
 
 func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
-	var f io.Reader
+	logrus.Trace(d.opt.WatchPath)
 	if d.f == nil {
-		file, err := os.Open(d.opt.WatchPath)
+		f, err := os.Open(d.opt.WatchPath)
 		if err != nil {
 			return nil, err
 		}
-		defer file.Close()
-		f = file
-	} else {
-		f = d.f
+		d.f = f
 	}
-	detectFile, err := parseJSON(f)
+	detectFile, err := parseJSON(d.f)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Infof("detected struct: %v", detectFile)
+	logrus.Trace(detectFile)
 	image := buildv1beta1.Image{}
 	nn := ktypes.NamespacedName{
 		Namespace: d.opt.ImageNamespace,
@@ -133,14 +129,14 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 		newPolicy = append(newPolicy, policy)
 	}
 	diff := cmp.Diff(image.Spec.Repository.TagPolicies, newPolicy)
-	logrus.Info(diff)
+	logrus.Trace(diff)
 	if diff != "" {
 		newImage.Spec.Repository.TagPolicies = newPolicy
 		if err := d.c.Update(ctx, newImage); err != nil {
 			return nil, err
 		}
-		logrus.Info("image updated")
 	}
+	logrus.Trace("image updated")
 	return newImage, nil
 }
 
@@ -159,7 +155,6 @@ func parseJSON(r io.Reader) (*types.DetectFile, error) {
 	for scanner.Scan() {
 		buf = append(buf, scanner.Bytes()...)
 	}
-	logrus.Info(string(buf))
 	file := &types.DetectFile{}
 	if err := json.Unmarshal(buf, file); err != nil {
 		return nil, err

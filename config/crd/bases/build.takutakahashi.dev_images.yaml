@@ -56,11 +56,16 @@ spec:
                           type: string
                         revision:
                           type: string
+                      required:
+                      - policy
+                      - resolvedRevision
+                      - revision
                       type: object
                     type: array
                   url:
                     type: string
                 required:
+                - tagPolicies
                 - url
                 type: object
               targets:
