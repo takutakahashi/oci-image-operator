@@ -41,11 +41,11 @@ var _ = Describe("Image controller", func() {
 					return err
 				}
 				deploy := &appsv1.Deployment{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-detect", objKey.Name), Namespace: objKey.Namespace},
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-detect", objKey.Name), Namespace: "oci-image-operator-system"},
 					deploy); err != nil {
 					return err
 				}
-				if deploy.Spec.Template.Spec.ServiceAccountName != "actor-detect" {
+				if deploy.Spec.Template.Spec.ServiceAccountName != "oci-image-operator-actor-detect" {
 					return errors.New("wrong service account name")
 				}
 				for _, c := range deploy.Spec.Template.Spec.Containers {
