@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -27,16 +26,15 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logrus.Info("detect starting")
 		d, err := detect.Init(nil, detect.DetectOpt{
-			WatchPath:      os.Getenv("WATCH_FILE_PATH"),
+			WatchPath:      "/tmp/actor-base/detect",
 			ImageName:      os.Getenv("IMAGE_NAME"),
 			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
 		})
 		if err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 		}
-		logrus.Info(err)
 		if err := d.Run(context.TODO()); err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 		}
 	},
 }

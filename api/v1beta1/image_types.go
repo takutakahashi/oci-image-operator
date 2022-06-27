@@ -35,13 +35,13 @@ type ImageSpec struct {
 type ImageRepository struct {
 	URL         string           `json:"url"`
 	Auth        ImageAuth        `json:"auth,omitempty"`
-	TagPolicies []ImageTagPolicy `json:"tagPolicies"`
+	TagPolicies []ImageTagPolicy `json:"tagPolicies,omitempty"`
 }
 
 type ImageTagPolicy struct {
-	Policy           ImageTagPolicyType `json:"policy"`
-	Revision         string             `json:"revision"`
-	ResolvedRevision string             `json:"resolvedRevision"`
+	Policy           ImageTagPolicyType `json:"policy,omitempty"`
+	Revision         string             `json:"revision,omitempty"`
+	ResolvedRevision string             `json:"resolvedRevision,omitempty"`
 }
 
 type ImageTagPolicyType string
@@ -56,6 +56,7 @@ var (
 type ImageTarget struct {
 	Name string    `json:"name"`
 	Auth ImageAuth `json:"auth,omitempty"`
+	// TODO: add context and dockerfile path for building monorepo
 }
 
 type ImageAuth struct {
