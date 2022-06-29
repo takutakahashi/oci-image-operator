@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +32,7 @@ var _ = Describe("Image controller", func() {
 	Describe("create", func() {
 		It("detect should success", func() {
 			ctx := context.TODO()
-			image := newImage()
+			image := newImage("test-detect")
 			inClusterImage := &buildv1beta1.Image{}
 			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
 			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
@@ -67,7 +68,27 @@ var _ = Describe("Image controller", func() {
 						}
 						break
 					}
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+		})
 
+		It("check should success", func() {
+			ctx := context.TODO()
+			image := newImage("test-check")
+			inClusterImage := &buildv1beta1.Image{}
+			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			err = toDetected(image, "master", "aaaaaaaaaaa")
+			Expect(err).To(Succeed())
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
+					return err
+				}
+				if len(inClusterImage.Status.Conditions) == 0 {
+					logrus.Info(image.Status.Conditions)
+					return fmt.Errorf("conditions are not found")
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -76,10 +97,10 @@ var _ = Describe("Image controller", func() {
 	//! [test]
 })
 
-func newImage() *buildv1beta1.Image {
+func newImage(name string) *buildv1beta1.Image {
 	return &buildv1beta1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
+			Name:      name,
 			Namespace: "default",
 		},
 		Spec: buildv1beta1.ImageSpec{
@@ -104,6 +125,29 @@ func newImage() *buildv1beta1.Image {
 			},
 		},
 	}
+}
+
+func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) error {
+	for i, tp := range image.Spec.Repository.TagPolicies {
+		if tp.Revision == revision {
+			image.Spec.Repository.TagPolicies[i].ResolvedRevision = resolvedRevision
+		}
+	}
+	if err := k8sClient.Update(context.TODO(), image, &client.UpdateOptions{}); err != nil {
+		return err
+	}
+	t := metav1.Now()
+	image.Status = buildv1beta1.ImageStatus{
+		Conditions: []buildv1beta1.ImageCondition{
+			{
+				LastTransitionTime: t,
+				LastProbeTime:      t,
+				Type:               buildv1beta1.ImageConditionTypeDetected,
+				Revision:           revision,
+			},
+		},
+	}
+	return k8sClient.Status().Update(context.TODO(), image, &client.UpdateOptions{})
 }
 
 func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {

@@ -23,10 +23,10 @@ func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, tem
 	if after, err := EnsureDetect(ctx, c, image, template, secrets); err != nil || Diff(image, after) != "" {
 		return after, err
 	}
-	if after, err := EnsureCheck(image, template, secrets); err != nil || Diff(image, after) != "" {
+	if after, err := EnsureCheck(ctx, c, image, template, secrets); err != nil || Diff(image, after) != "" {
 		return after, err
 	}
-	return EnsureCheck(image, template, secrets)
+	return EnsureUpload(ctx, c, image, template, secrets)
 }
 
 func Diff(before, after *buildv1beta1.Image) string {
@@ -45,11 +45,22 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	return image, nil
 }
 
-func EnsureCheck(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+	/**
+		1. check result of detect from status.
+		2. if changes of detect was not found, return the same image.
+	**/
+	deploy, err := checkDeployment(image, template)
+	if err != nil {
+		return nil, err
+	}
+	if err := apply(ctx, c, deploy); err != nil {
+		return nil, err
+	}
 	return image, nil
 }
 
-func EnsureUpload(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+func EnsureUpload(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
 	return image, nil
 }
 
@@ -67,9 +78,32 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace),
-			actorContainer(&template.Spec.Detect),
+			actorContainer(&template.Spec.Detect, "detect"),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
+		WithLabels(image.Labels).
+		// TODO: add owner reference
+		WithOwnerReferences().
+		WithAnnotations(image.Annotations).
+		WithSpec(appsv1apply.DeploymentSpec().
+			WithReplicas(1).
+			WithSelector(
+				metav1apply.LabelSelector().WithMatchLabels(
+					setLabel(image.Name, image.Labels))).
+			WithTemplate(podTemplate))
+	deploy.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
+	return deploy, nil
+}
+
+func checkDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*appsv1apply.DeploymentApplyConfiguration, error) {
+	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
+		WithServiceAccountName("oci-image-operator-actor-check").
+		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
+		WithContainers(
+			baseContainer(image.Name, image.Namespace),
+			actorContainer(&template.Spec.Check, "check"),
+		))
+	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
 		// TODO: add owner reference
 		WithOwnerReferences().
@@ -97,10 +131,10 @@ func baseContainer(name, namespace string) *corev1apply.ContainerApplyConfigurat
 
 }
 
-func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate) *corev1apply.ContainerApplyConfiguration {
+func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
 	ret := (*corev1apply.ContainerApplyConfiguration)(spec.Actor)
 	ret.Name = pointer.String("main")
-	ret.Command = []string{"/entrypoint", "detect"}
+	ret.Command = []string{"/entrypoint", role}
 	ret.VolumeMounts = append(ret.VolumeMounts, *corev1apply.VolumeMount().WithMountPath("/tmp/actor-output").WithName("tmpdir"))
 	return ret
 }
