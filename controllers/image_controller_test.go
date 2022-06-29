@@ -67,6 +67,10 @@ var _ = Describe("Image controller", func() {
 				if !cmp.Equal(contained, required) {
 					return fmt.Errorf("required env is invalid. %s", contained)
 				}
+				c = baseContainer(deploy.Spec.Template.Spec.Containers)
+				if c.Args[len(c.Args)-1] != "detect" {
+					return fmt.Errorf("args not contain detect")
+				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
@@ -97,6 +101,11 @@ var _ = Describe("Image controller", func() {
 				}
 				c := mainContainer(job.Spec.Template.Spec.Containers)
 				if c.Command[len(c.Command)-1] != "check" {
+					return fmt.Errorf("args not contain check")
+				}
+
+				c = baseContainer(job.Spec.Template.Spec.Containers)
+				if c.Args[len(c.Args)-1] != "check" {
 					return fmt.Errorf("args not contain check")
 				}
 				return nil
@@ -189,10 +198,18 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 }
 
 func mainContainer(containers []corev1.Container) corev1.Container {
+	return getContainer(containers, "main")
+}
+
+func baseContainer(containers []corev1.Container) corev1.Container {
+	return getContainer(containers, "actor-base")
+}
+
+func getContainer(containers []corev1.Container, name string) corev1.Container {
 	for _, c := range containers {
-		if c.Name == "main" {
+		if c.Name == name {
 			return c
 		}
 	}
-	panic("main container not found")
+	panic("container not found")
 }

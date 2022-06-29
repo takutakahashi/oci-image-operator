@@ -93,7 +93,7 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithServiceAccountName("oci-image-operator-actor-detect").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace),
+			baseContainer(image.Name, image.Namespace, "detect"),
 			actorContainer(&template.Spec.Detect, "detect"),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
@@ -117,7 +117,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithServiceAccountName("oci-image-operator-actor-check").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace),
+			baseContainer(image.Name, image.Namespace, "check"),
 			actorContainer(&template.Spec.Check, "check"),
 		))
 	job := batchv1apply.Job(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
@@ -131,11 +131,11 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 	return job, nil
 }
 
-func baseContainer(name, namespace string) *corev1apply.ContainerApplyConfiguration {
+func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConfiguration {
 	return corev1apply.Container().
-		WithName("update-image").
+		WithName("actor-base").
 		WithImage("ghcr.io/takutakahashi/oci-image-operator/actor-base:beta").
-		WithArgs("detect").
+		WithArgs(role).
 		WithEnv(
 			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
 			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
