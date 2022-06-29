@@ -14,6 +14,7 @@ import (
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -50,25 +51,21 @@ var _ = Describe("Image controller", func() {
 				if deploy.Spec.Template.Spec.ServiceAccountName != "oci-image-operator-actor-detect" {
 					return errors.New("wrong service account name")
 				}
-				for _, c := range deploy.Spec.Template.Spec.Containers {
-					if c.Name == "main" {
-						if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
-							return fmt.Errorf("diff detected. %s", d)
-						}
+				c := mainContainer(deploy.Spec.Template.Spec.Containers)
+				if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
+					return fmt.Errorf("diff detected. %s", d)
+				}
 
-						contained := []string{}
-						required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
-						for _, e := range c.Env {
-							if slices.Contains(required, e.Name) {
-								contained = append(contained, e.Name)
-							}
-						}
-						sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
-						if !cmp.Equal(contained, required) {
-							return fmt.Errorf("required env is invalid. %s", contained)
-						}
-						break
+				contained := []string{}
+				required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
+				for _, e := range c.Env {
+					if slices.Contains(required, e.Name) {
+						contained = append(contained, e.Name)
 					}
+				}
+				sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
+				if !cmp.Equal(contained, required) {
+					return fmt.Errorf("required env is invalid. %s", contained)
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -97,6 +94,10 @@ var _ = Describe("Image controller", func() {
 				job := batchv1.Job{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-check", image.Name), Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
+				}
+				c := mainContainer(job.Spec.Template.Spec.Containers)
+				if c.Command[len(c.Command)-1] != "check" {
+					return fmt.Errorf("args not contain check")
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -185,4 +186,13 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 			Upload: tmp,
 		},
 	}
+}
+
+func mainContainer(containers []corev1.Container) corev1.Container {
+	for _, c := range containers {
+		if c.Name == "main" {
+			return c
+		}
+	}
+	panic("main container not found")
 }
