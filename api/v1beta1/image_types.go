@@ -78,10 +78,10 @@ type ImageStatus struct {
 type ImageCondition struct {
 
 	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 
 	// Last time we probed the condition.
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+	LastProbeTime *metav1.Time `json:"lastProbeTime,omitempty"`
 
 	// Type of Condition. ex: Detected, Checked, Uploaded
 	Type ImageConditionType `json:"type,omitempty"`

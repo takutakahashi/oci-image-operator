@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -80,7 +81,7 @@ var _ = Describe("Image controller", func() {
 			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
 			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
 			Expect(err).To(Succeed())
-			err = toDetected(image, "master", "aaaaaaaaaaa")
+			err = toDetected(image, "master", "test12345")
 			Expect(err).To(Succeed())
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
@@ -89,6 +90,13 @@ var _ = Describe("Image controller", func() {
 				if len(inClusterImage.Status.Conditions) == 0 {
 					logrus.Info(image.Status.Conditions)
 					return fmt.Errorf("conditions are not found")
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(func() error {
+				job := batchv1.Job{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-check", image.Name), Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -140,8 +148,8 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 	image.Status = buildv1beta1.ImageStatus{
 		Conditions: []buildv1beta1.ImageCondition{
 			{
-				LastTransitionTime: t,
-				LastProbeTime:      t,
+				LastTransitionTime: &t,
+				LastProbeTime:      &t,
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Revision:           revision,
 			},

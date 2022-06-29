@@ -5,14 +5,18 @@ import (
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	appsv1apply "k8s.io/client-go/applyconfigurations/apps/v1"
+	batchv1apply "k8s.io/client-go/applyconfigurations/batch/v1"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/utils/pointer"
@@ -39,7 +43,7 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	if err != nil {
 		return nil, err
 	}
-	if err := apply(ctx, c, deploy); err != nil {
+	if err := applyDeployment(ctx, c, deploy); err != nil {
 		return nil, err
 	}
 	return image, nil
@@ -50,12 +54,24 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 		1. check result of detect from status.
 		2. if changes of detect was not found, return the same image.
 	**/
-	deploy, err := checkDeployment(image, template)
-	if err != nil {
-		return nil, err
+	logrus.Info(image.Status.Conditions)
+	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+	if detectedCondition.LastTransitionTime == nil {
+		logrus.Info("image not detected")
+		return image, nil
 	}
-	if err := apply(ctx, c, deploy); err != nil {
-		return nil, err
+	checkedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked)
+	if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
+		logrus.Info("image already checked")
+		return image, nil
+	}
+	logrus.Info("checking image")
+	job, err := checkJob(image, template)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build job")
+	}
+	if err := applyJob(ctx, c, job); err != nil {
+		return nil, errors.Wrap(err, "failed to apply job")
 	}
 	return image, nil
 }
@@ -95,27 +111,24 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 	return deploy, nil
 }
 
-func checkDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*appsv1apply.DeploymentApplyConfiguration, error) {
+func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*batchv1apply.JobApplyConfiguration, error) {
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
+		WithRestartPolicy(corev1.RestartPolicyOnFailure).
 		WithServiceAccountName("oci-image-operator-actor-check").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace),
 			actorContainer(&template.Spec.Check, "check"),
 		))
-	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
+	job := batchv1apply.Job(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
 		// TODO: add owner reference
 		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
-		WithSpec(appsv1apply.DeploymentSpec().
-			WithReplicas(1).
-			WithSelector(
-				metav1apply.LabelSelector().WithMatchLabels(
-					setLabel(image.Name, image.Labels))).
+		WithSpec(batchv1apply.JobSpec().
 			WithTemplate(podTemplate))
-	deploy.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
-	return deploy, nil
+	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
+	return job, nil
 }
 
 func baseContainer(name, namespace string) *corev1apply.ContainerApplyConfiguration {
@@ -139,7 +152,7 @@ func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role strin
 	return ret
 }
 
-func apply(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentApplyConfiguration) error {
+func applyDeployment(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentApplyConfiguration) error {
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deploy)
 	if err != nil {
 		return err
@@ -149,7 +162,7 @@ func apply(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentA
 	}
 	var current appsv1.Deployment
 	err = c.Get(ctx, client.ObjectKey{Namespace: *deploy.Namespace, Name: *deploy.Name}, &current)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
@@ -165,4 +178,45 @@ func apply(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentA
 		FieldManager: "image-controller",
 		Force:        pointer.Bool(true),
 	})
+}
+func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyConfiguration) error {
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(job)
+	if err != nil {
+		return err
+	}
+	patch := &unstructured.Unstructured{
+		Object: obj,
+	}
+	var current batchv1.Job
+	err = c.Get(ctx, client.ObjectKey{Namespace: *job.Namespace, Name: *job.Name}, &current)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	currApplyConfig, err := batchv1apply.ExtractJob(&current, "image-controller")
+	if err != nil {
+		return err
+	}
+	if equality.Semantic.DeepEqual(job, currApplyConfig) {
+		return nil
+	}
+
+	return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
+		FieldManager: "image-controller",
+		Force:        pointer.Bool(true),
+	})
+}
+
+func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) buildv1beta1.ImageCondition {
+	for _, c := range conditions {
+		if c.Type == conditionType {
+			return c
+		}
+	}
+	return buildv1beta1.ImageCondition{
+		LastTransitionTime: nil,
+		LastProbeTime:      nil,
+		Status:             buildv1beta1.ImageConditionStatusUnknown,
+		Type:               conditionType,
+	}
 }
