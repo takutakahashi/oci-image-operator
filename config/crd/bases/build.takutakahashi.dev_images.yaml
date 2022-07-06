@@ -94,10 +94,6 @@ spec:
               conditions:
                 items:
                   properties:
-                    lastProbeTime:
-                      description: Last time we probed the condition.
-                      format: date-time
-                      type: string
                     lastTransitionTime:
                       description: Last time the condition transitioned from one status
                         to another.
@@ -108,6 +104,8 @@ spec:
                     status:
                       description: Status is the status of the condition. Can be True,
                         False, Unknown.
+                      type: string
+                    tagPolicy:
                       type: string
                     type:
                       description: 'Type of Condition. ex: Detected, Checked, Uploaded'

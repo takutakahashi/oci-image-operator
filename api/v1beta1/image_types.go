@@ -80,15 +80,13 @@ type ImageCondition struct {
 	// Last time the condition transitioned from one status to another.
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 
-	// Last time we probed the condition.
-	LastProbeTime *metav1.Time `json:"lastProbeTime,omitempty"`
-
 	// Type of Condition. ex: Detected, Checked, Uploaded
 	Type ImageConditionType `json:"type,omitempty"`
 
 	// Status is the status of the condition. Can be True, False, Unknown.
-	Status   ImageConditionStatus `json:"status,omitempty"`
-	Revision string               `json:"revision,omitempty"`
+	Status    ImageConditionStatus `json:"status,omitempty"`
+	Revision  string               `json:"revision,omitempty"`
+	TagPolicy ImageTagPolicyType   `json:"tagPolicy,omitempty"`
 }
 
 type ImageConditionType string

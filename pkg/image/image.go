@@ -53,6 +53,8 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 	/**
 		1. check result of detect from status.
 		2. if changes of detect was not found, return the same image.
+		3. if below are satisfied, ensure Job.
+			i. detectedCondition is transitioned and transition execute after checkCondition
 	**/
 	logrus.Info(image.Status.Conditions)
 	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
@@ -112,13 +114,19 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 }
 
 func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*batchv1apply.JobApplyConfiguration, error) {
+	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+	rev, err := getResolvedRevision(image, detectedCondition)
+	if err != nil {
+		return nil, err
+	}
+	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(rev)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
 		WithServiceAccountName("oci-image-operator-actor-check").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "check"),
-			actorContainer(&template.Spec.Check, "check"),
+			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv),
+			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv),
 		))
 	job := batchv1apply.Job(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
@@ -215,8 +223,16 @@ func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv
 	}
 	return buildv1beta1.ImageCondition{
 		LastTransitionTime: nil,
-		LastProbeTime:      nil,
 		Status:             buildv1beta1.ImageConditionStatusUnknown,
 		Type:               conditionType,
 	}
+}
+
+func getResolvedRevision(image *buildv1beta1.Image, detectedCondition buildv1beta1.ImageCondition) (string, error) {
+	for _, p := range image.Spec.Repository.TagPolicies {
+		if p.Revision == detectedCondition.Revision && p.Policy == detectedCondition.TagPolicy {
+			return p.ResolvedRevision, nil
+		}
+	}
+	return "", fmt.Errorf("failed to get resolved revision. %v, %v", detectedCondition.Revision, detectedCondition.TagPolicy)
 }

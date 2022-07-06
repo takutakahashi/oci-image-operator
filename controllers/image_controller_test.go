@@ -104,9 +104,17 @@ var _ = Describe("Image controller", func() {
 					return fmt.Errorf("args not contain check")
 				}
 
+				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
+					return fmt.Errorf("env is not match. env: %v", e)
+				}
+
 				c = baseContainer(job.Spec.Template.Spec.Containers)
 				if c.Args[len(c.Args)-1] != "check" {
 					return fmt.Errorf("args not contain check")
+				}
+
+				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
+					return fmt.Errorf("env is not match. env: %v", e)
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -146,9 +154,11 @@ func newImage(name string) *buildv1beta1.Image {
 }
 
 func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) error {
+	var tpt buildv1beta1.ImageTagPolicyType
 	for i, tp := range image.Spec.Repository.TagPolicies {
 		if tp.Revision == revision {
 			image.Spec.Repository.TagPolicies[i].ResolvedRevision = resolvedRevision
+			tpt = image.Spec.Repository.TagPolicies[i].Policy
 		}
 	}
 	if err := k8sClient.Update(context.TODO(), image, &client.UpdateOptions{}); err != nil {
@@ -159,9 +169,9 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 		Conditions: []buildv1beta1.ImageCondition{
 			{
 				LastTransitionTime: &t,
-				LastProbeTime:      &t,
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Revision:           revision,
+				TagPolicy:          tpt,
 			},
 		},
 	}
@@ -212,4 +222,13 @@ func getContainer(containers []corev1.Container, name string) corev1.Container {
 		}
 	}
 	panic("container not found")
+}
+
+func getEnv(env []corev1.EnvVar, key string) corev1.EnvVar {
+	for _, e := range env {
+		if e.Name == key {
+			return e
+		}
+	}
+	panic("env not found")
 }
