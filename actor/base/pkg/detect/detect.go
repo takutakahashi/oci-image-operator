@@ -9,13 +9,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	"gopkg.in/fsnotify.v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ktypes "k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +36,7 @@ func Init(cfg *rest.Config, opt DetectOpt) (*Detect, error) {
 	if cfg == nil {
 		cfg = ctrl.GetConfigOrDie()
 	}
-	c, err := genClient(cfg)
+	c, err := base.GenClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -142,15 +140,6 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 		logrus.Info("image updated")
 	}
 	return newImage, nil
-}
-
-func genClient(cfg *rest.Config) (client.Client, error) {
-	scheme := runtime.NewScheme()
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(buildv1beta1.AddToScheme(scheme))
-	return client.New(cfg, client.Options{
-		Scheme: scheme,
-	})
 }
 
 func parseJSON(r io.Reader) (*types.DetectFile, error) {

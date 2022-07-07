@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
@@ -62,7 +63,7 @@ func setup() (client.Client, func() error) {
 	if err != nil {
 		panic(err)
 	}
-	c, err := genClient(cfg)
+	c, err := base.GenClient(cfg)
 	if err != nil {
 		panic(err)
 	}
