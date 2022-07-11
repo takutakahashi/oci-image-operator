@@ -223,3 +223,13 @@ func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv
 		Type:               conditionType,
 	}
 }
+func setCondition(conditions []buildv1beta1.ImageCondition, condition buildv1beta1.ImageCondition) []buildv1beta1.ImageCondition {
+	for i, c := range conditions {
+		if c.Type == condition.Type && c.Revision == condition.Revision && c.TagPolicy == condition.TagPolicy {
+			conditions[i] = condition
+			return conditions
+		}
+	}
+	conditions = append(conditions, condition)
+	return conditions
+}
