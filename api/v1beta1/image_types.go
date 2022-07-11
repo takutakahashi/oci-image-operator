@@ -39,9 +39,8 @@ type ImageRepository struct {
 }
 
 type ImageTagPolicy struct {
-	Policy           ImageTagPolicyType `json:"policy,omitempty"`
-	Revision         string             `json:"revision,omitempty"`
-	ResolvedRevision string             `json:"resolvedRevision,omitempty"`
+	Policy   ImageTagPolicyType `json:"policy,omitempty"`
+	Revision string             `json:"revision,omitempty"`
 }
 
 type ImageTagPolicyType string
@@ -84,9 +83,10 @@ type ImageCondition struct {
 	Type ImageConditionType `json:"type,omitempty"`
 
 	// Status is the status of the condition. Can be True, False, Unknown.
-	Status    ImageConditionStatus `json:"status,omitempty"`
-	Revision  string               `json:"revision,omitempty"`
-	TagPolicy ImageTagPolicyType   `json:"tagPolicy,omitempty"`
+	Status           ImageConditionStatus `json:"status,omitempty"`
+	Revision         string               `json:"revision,omitempty"`
+	ResolvedRevision string               `json:"resolvedRevision,omitempty"`
+	TagPolicy        ImageTagPolicyType   `json:"tagPolicy,omitempty"`
 }
 
 type ImageConditionType string

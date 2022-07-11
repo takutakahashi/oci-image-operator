@@ -157,7 +157,6 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 	var tpt buildv1beta1.ImageTagPolicyType
 	for i, tp := range image.Spec.Repository.TagPolicies {
 		if tp.Revision == revision {
-			image.Spec.Repository.TagPolicies[i].ResolvedRevision = resolvedRevision
 			tpt = image.Spec.Repository.TagPolicies[i].Policy
 		}
 	}
@@ -171,6 +170,7 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 				LastTransitionTime: &t,
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
 				TagPolicy:          tpt,
 			},
 		},

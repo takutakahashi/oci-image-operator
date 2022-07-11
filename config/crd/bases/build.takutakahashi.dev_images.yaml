@@ -52,8 +52,6 @@ spec:
                       properties:
                         policy:
                           type: string
-                        resolvedRevision:
-                          type: string
                         revision:
                           type: string
                       type: object
@@ -98,6 +96,8 @@ spec:
                       description: Last time the condition transitioned from one status
                         to another.
                       format: date-time
+                      type: string
+                    resolvedRevision:
                       type: string
                     revision:
                       type: string

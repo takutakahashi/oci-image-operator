@@ -115,11 +115,7 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 
 func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*batchv1apply.JobApplyConfiguration, error) {
 	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
-	rev, err := getResolvedRevision(image, detectedCondition)
-	if err != nil {
-		return nil, err
-	}
-	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(rev)
+	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(detectedCondition.ResolvedRevision)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
 		WithServiceAccountName("oci-image-operator-actor-check").
@@ -226,13 +222,4 @@ func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv
 		Status:             buildv1beta1.ImageConditionStatusUnknown,
 		Type:               conditionType,
 	}
-}
-
-func getResolvedRevision(image *buildv1beta1.Image, detectedCondition buildv1beta1.ImageCondition) (string, error) {
-	for _, p := range image.Spec.Repository.TagPolicies {
-		if p.Revision == detectedCondition.Revision && p.Policy == detectedCondition.TagPolicy {
-			return p.ResolvedRevision, nil
-		}
-	}
-	return "", fmt.Errorf("failed to get resolved revision. %v, %v", detectedCondition.Revision, detectedCondition.TagPolicy)
 }
