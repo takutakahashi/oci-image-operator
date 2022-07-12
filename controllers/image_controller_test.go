@@ -95,11 +95,10 @@ var _ = Describe("Image controller", func() {
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(func() error {
-				l := batchv1.JobList{}
-				if err := k8sClient.List(ctx, &l, &client.ListOptions{Namespace: "oci-image-operator-system"}); err != nil || len(l.Items) == 0 {
-					return fmt.Errorf("no resource found")
-				}
 				job := batchv1.Job{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-dd2a454", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
+				}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
 				}
@@ -163,8 +162,17 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 		Conditions: []buildv1beta1.ImageCondition{
 			{
 				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Type:               buildv1beta1.ImageConditionTypeDetected,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Revision:           "master2",
 				ResolvedRevision:   resolvedRevision,
 				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
 			},

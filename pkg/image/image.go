@@ -159,11 +159,10 @@ func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConf
 }
 
 func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
-	ret := (*corev1apply.ContainerApplyConfiguration)(spec.Actor)
-	ret.Name = pointer.String("main")
-	ret.Command = []string{"/entrypoint", role}
-	ret.VolumeMounts = append(ret.VolumeMounts, *corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
-	return ret
+	return (*corev1apply.ContainerApplyConfiguration)(spec.Actor.DeepCopy()).
+		WithName("main").
+		WithCommand("/entrypoint", role).
+		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
 }
 
 func applyDeployment(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentApplyConfiguration) error {
