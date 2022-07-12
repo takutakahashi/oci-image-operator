@@ -87,7 +87,7 @@ func TestDetect_UpdateImage(t *testing.T) {
 		name    string
 		fields  fields
 		wantErr bool
-		want    []buildv1beta1.ImageTagPolicy
+		want    buildv1beta1.ImageCondition
 	}{
 		{
 			name: "ok",
@@ -96,12 +96,10 @@ func TestDetect_UpdateImage(t *testing.T) {
 				watchPath: "/tmp/github-actor/detect",
 				json:      `{"branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
 			},
-			want: []buildv1beta1.ImageTagPolicy{
-				{
-					Policy:           buildv1beta1.ImageTagPolicyTypeTagHash,
-					Revision:         "master",
-					ResolvedRevision: "000011112222",
-				},
+			want: buildv1beta1.ImageCondition{
+				TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
+				Revision:         "master",
+				ResolvedRevision: "000011112222",
 			},
 		},
 	}
@@ -148,19 +146,17 @@ func TestDetect_Run(t *testing.T) {
 		name    string
 		fields  fields
 		wantErr bool
-		want    []buildv1beta1.ImageTagPolicy
+		want    buildv1beta1.ImageCondition
 	}{
 		{
 			name: "ok",
 			fields: fields{
 				json: `{"branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
 			},
-			want: []buildv1beta1.ImageTagPolicy{
-				{
-					Policy:           buildv1beta1.ImageTagPolicyTypeTagHash,
-					Revision:         "master",
-					ResolvedRevision: "000011112222",
-				},
+			want: buildv1beta1.ImageCondition{
+				TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
+				Revision:         "master",
+				ResolvedRevision: "000011112222",
 			},
 		},
 	}

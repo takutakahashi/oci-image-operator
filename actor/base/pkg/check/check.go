@@ -78,7 +78,7 @@ func GetCheckFile(image *buildv1beta1.Image) CheckFile {
 	prs := []Revision{}
 	for _, c := range image.Status.Conditions {
 		if c.TagPolicy == buildv1beta1.ImageTagPolicyTypeBranchHash {
-			prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision:})
+			prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision: c.ResolvedRevision})
 
 		}
 	}
