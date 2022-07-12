@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -87,19 +88,30 @@ func TestDetect_UpdateImage(t *testing.T) {
 		name    string
 		fields  fields
 		wantErr bool
-		want    buildv1beta1.ImageCondition
+		want    []buildv1beta1.ImageCondition
 	}{
 		{
 			name: "ok",
 			fields: fields{
 				c:         c,
 				watchPath: "/tmp/github-actor/detect",
-				json:      `{"branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
+				json:      `{"revision":"master","branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
 			},
-			want: buildv1beta1.ImageCondition{
-				TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
-				Revision:         "master",
-				ResolvedRevision: "000011112222",
+			want: []buildv1beta1.ImageCondition{
+				{
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+					Type:             buildv1beta1.ImageConditionTypeDetected,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					Revision:         "master",
+					ResolvedRevision: "aaa",
+				},
+				{
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
+					Type:             buildv1beta1.ImageConditionTypeDetected,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					Revision:         "master",
+					ResolvedRevision: "000011112222",
+				},
 			},
 		},
 	}
@@ -127,7 +139,7 @@ func TestDetect_UpdateImage(t *testing.T) {
 			if err := c.Get(context.TODO(), ktypes.NamespacedName{Namespace: got.Namespace, Name: got.Name}, &savedObj); err != nil {
 				t.Errorf("Detect.UpdateImage() error = %v", err)
 			}
-			if diff := cmp.Diff(tt.want, savedObj.Spec.Repository.TagPolicies); diff != "" {
+			if diff := cmp.Diff(tt.want, savedObj.Status.Conditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); diff != "" {
 				t.Error("Detect.UpdateImage() diff detected")
 				t.Error(diff)
 			}
@@ -146,17 +158,28 @@ func TestDetect_Run(t *testing.T) {
 		name    string
 		fields  fields
 		wantErr bool
-		want    buildv1beta1.ImageCondition
+		want    []buildv1beta1.ImageCondition
 	}{
 		{
 			name: "ok",
 			fields: fields{
-				json: `{"branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
+				json: `{"revision":"master","branches":{"master":"aaa"},"tags":{"latest/hash":"000011112222"}}`,
 			},
-			want: buildv1beta1.ImageCondition{
-				TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
-				Revision:         "master",
-				ResolvedRevision: "000011112222",
+			want: []buildv1beta1.ImageCondition{
+				{
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+					Type:             buildv1beta1.ImageConditionTypeDetected,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					Revision:         "master",
+					ResolvedRevision: "aaa",
+				},
+				{
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
+					Type:             buildv1beta1.ImageConditionTypeDetected,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					Revision:         "master",
+					ResolvedRevision: "000011112222",
+				},
 			},
 		},
 	}
@@ -190,8 +213,7 @@ func TestDetect_Run(t *testing.T) {
 				if err := c.Get(context.TODO(), ktypes.NamespacedName{Name: "test", Namespace: "default"}, &savedObj); err != nil {
 					panic(err)
 				}
-				t.Log(savedObj.Spec.Repository.TagPolicies)
-				if diff := cmp.Diff(tt.want, savedObj.Spec.Repository.TagPolicies); diff != "" {
+				if diff := cmp.Diff(tt.want, savedObj.Status.Conditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); diff != "" {
 					t.Error("diff detected")
 					t.Error(diff)
 				}

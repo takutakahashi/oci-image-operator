@@ -6,6 +6,7 @@ import (
 
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
+	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,27 +52,24 @@ func (c *Check) Run(ctx context.Context) error {
 		return err
 	}
 	if !c.ActorInputExists() {
-		return parseJSON()
+		panic("not implemented")
 	}
 	if !c.ActorOutputExists() {
-		return nil
+		panic("not implemented")
 	}
-	return nil
+	panic(image)
+	//return nil
 }
 
 func (c *Check) ActorInputExists() bool {
-	return fileExists("/tmp/actor-base/input")
+	return fileExists(imageutil.InWorkDir("input"))
 }
 func (c *Check) ActorOutputExists() bool {
-	return fileExists("/tmp/actor-base/output")
+	return fileExists(imageutil.InWorkDir("output"))
 }
 func fileExists(filename string) bool {
 	_, err := ioutil.ReadFile(filename)
 	return err == nil
-}
-
-func parseJSON(image *buildv1beta1.Image) error {
-	f := GetCheckFile(image)
 }
 
 func GetCheckFile(image *buildv1beta1.Image) CheckFile {

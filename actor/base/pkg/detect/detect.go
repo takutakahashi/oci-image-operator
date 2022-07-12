@@ -8,10 +8,12 @@ import (
 	"os"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
+	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 	"gopkg.in/fsnotify.v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -113,28 +115,13 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 	if err := d.c.Get(ctx, nn, &image); err != nil {
 		return nil, err
 	}
+
 	newImage := image.DeepCopy()
-	newPolicy := []buildv1beta1.ImageTagPolicy{}
-	for _, policy := range image.Spec.Repository.TagPolicies {
-		switch policy.Policy {
-		case buildv1beta1.ImageTagPolicyTypeTagHash:
-			policy.ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagHash]
-		case buildv1beta1.ImageTagPolicyTypeTagName:
-			policy.ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagName]
-		case buildv1beta1.ImageTagPolicyTypeBranchHash:
-			policy.ResolvedRevision = detectFile.Branches[policy.Revision]
-		case buildv1beta1.ImageTagPolicyTypeBranchName:
-			policy.ResolvedRevision = policy.Revision
-		default:
-			policy.ResolvedRevision = policy.Revision
-		}
-		newPolicy = append(newPolicy, policy)
-	}
-	diff := cmp.Diff(image.Spec.Repository.TagPolicies, newPolicy)
-	logrus.Info(diff)
+	newConditions := ensureConditions(newImage.Status.Conditions, detectFile)
+	diff := cmp.Diff(newImage.Status.Conditions, newConditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime"))
 	if diff != "" {
-		newImage.Spec.Repository.TagPolicies = newPolicy
-		if err := d.c.Update(ctx, newImage); err != nil {
+		newImage.Status.Conditions = newConditions
+		if err := d.c.Status().Update(ctx, newImage); err != nil {
 			return nil, err
 		}
 		logrus.Info("image updated")
@@ -154,4 +141,32 @@ func parseJSON(r io.Reader) (*types.DetectFile, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *types.DetectFile) []buildv1beta1.ImageCondition {
+	for branch, resolvedRevision := range detectFile.Branches {
+		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
+			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
+	}
+	for key, resolvedRevision := range detectFile.Tags {
+		if key == types.MapKeyLatestTagName || key == types.MapKeyLatestTagHash {
+			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
+				buildv1beta1.ImageTagPolicyTypeTagHash, detectFile.Revision, resolvedRevision)
+		}
+	}
+	for i, c := range conditions {
+		switch c.TagPolicy {
+		case buildv1beta1.ImageTagPolicyTypeTagHash:
+			conditions[i].ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagHash]
+		case buildv1beta1.ImageTagPolicyTypeTagName:
+			conditions[i].ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagName]
+		case buildv1beta1.ImageTagPolicyTypeBranchHash:
+			conditions[i].ResolvedRevision = detectFile.Branches[c.Revision]
+		case buildv1beta1.ImageTagPolicyTypeBranchName:
+			conditions[i].ResolvedRevision = c.Revision
+		default:
+			conditions[i].ResolvedRevision = c.Revision
+		}
+	}
+	return conditions
 }
