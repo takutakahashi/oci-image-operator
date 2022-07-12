@@ -151,7 +151,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *type
 	for key, resolvedRevision := range detectFile.Tags {
 		if key == types.MapKeyLatestTagName || key == types.MapKeyLatestTagHash {
 			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
-				buildv1beta1.ImageTagPolicyTypeTagHash, detectFile.Revision, resolvedRevision)
+				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}
 	for i, c := range conditions {
