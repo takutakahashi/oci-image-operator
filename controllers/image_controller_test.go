@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -95,8 +95,12 @@ var _ = Describe("Image controller", func() {
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(func() error {
+				l := batchv1.JobList{}
+				if err := k8sClient.List(ctx, &l, &client.ListOptions{Namespace: "oci-image-operator-system"}); err != nil || len(l.Items) == 0 {
+					return fmt.Errorf("no resource found")
+				}
 				job := batchv1.Job{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-check", image.Name), Namespace: "oci-image-operator-system"}, &job); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
 				}
 				c := mainContainer(job.Spec.Template.Spec.Containers)
@@ -154,15 +158,6 @@ func newImage(name string) *buildv1beta1.Image {
 }
 
 func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) error {
-	var tpt buildv1beta1.ImageTagPolicyType
-	for i, tp := range image.Spec.Repository.TagPolicies {
-		if tp.Revision == revision {
-			tpt = image.Spec.Repository.TagPolicies[i].Policy
-		}
-	}
-	if err := k8sClient.Update(context.TODO(), image, &client.UpdateOptions{}); err != nil {
-		return err
-	}
 	t := metav1.Now()
 	image.Status = buildv1beta1.ImageStatus{
 		Conditions: []buildv1beta1.ImageCondition{
@@ -171,7 +166,7 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Revision:           revision,
 				ResolvedRevision:   resolvedRevision,
-				TagPolicy:          tpt,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
 			},
 		},
 	}

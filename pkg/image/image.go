@@ -2,6 +2,8 @@ package image
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,6 +23,10 @@ import (
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	actorWorkDir = "/tmp/actor"
 )
 
 func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -57,23 +63,24 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 			i. detectedCondition is transitioned and transition execute after checkCondition
 	**/
 	logrus.Info(image.Status.Conditions)
-	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
-	if detectedCondition.LastTransitionTime == nil {
-		logrus.Info("image not detected")
+	conds := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+	if conds == nil {
 		return image, nil
 	}
-	checkedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked)
-	if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
-		logrus.Info("image already checked")
-		return image, nil
-	}
-	logrus.Info("checking image")
-	job, err := checkJob(image, template)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build job")
-	}
-	if err := applyJob(ctx, c, job); err != nil {
-		return nil, errors.Wrap(err, "failed to apply job")
+	for _, detectedCondition := range conds {
+		checkedCondition := getConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, detectedCondition)
+		if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
+			logrus.Info("image already checked")
+			continue
+		}
+		logrus.Info("checking image")
+		job, err := checkJob(image, template, detectedCondition)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build job")
+		}
+		if err := applyJob(ctx, c, job); err != nil {
+			return nil, errors.Wrap(err, "failed to apply job")
+		}
 	}
 	return image, nil
 }
@@ -113,8 +120,7 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 	return deploy, nil
 }
 
-func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*batchv1apply.JobApplyConfiguration, error) {
-	detectedCondition := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, detectedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(detectedCondition.ResolvedRevision)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
@@ -124,7 +130,11 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv),
 			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv),
 		))
-	job := batchv1apply.Job(fmt.Sprintf("%s-check", image.Name), "oci-image-operator-system").
+	// add sha256 from revision and tag policy
+	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", detectedCondition.Revision, detectedCondition.TagPolicy)))
+	h := hex.EncodeToString(r[:])
+	name := fmt.Sprintf("%s-check-%s", image.Name, h[:7])
+	job := batchv1apply.Job(name, "oci-image-operator-system").
 		WithLabels(image.Labels).
 		// TODO: add owner reference
 		WithOwnerReferences().
@@ -144,7 +154,7 @@ func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConf
 			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
 			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
 		).
-		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath("/tmp/actor-base").WithName("tmpdir"))
+		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
 
 }
 
@@ -152,7 +162,7 @@ func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role strin
 	ret := (*corev1apply.ContainerApplyConfiguration)(spec.Actor)
 	ret.Name = pointer.String("main")
 	ret.Command = []string{"/entrypoint", role}
-	ret.VolumeMounts = append(ret.VolumeMounts, *corev1apply.VolumeMount().WithMountPath("/tmp/actor-output").WithName("tmpdir"))
+	ret.VolumeMounts = append(ret.VolumeMounts, *corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
 	return ret
 }
 
@@ -211,16 +221,29 @@ func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyCo
 	})
 }
 
-func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) buildv1beta1.ImageCondition {
+func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {
+	ret := []buildv1beta1.ImageCondition{}
 	for _, c := range conditions {
 		if c.Type == conditionType {
+			ret = append(ret, c)
+		}
+	}
+	return ret
+}
+
+func getConditionBy(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, baseCondition buildv1beta1.ImageCondition) buildv1beta1.ImageCondition {
+	for _, c := range conditions {
+		if c.Type == condType && c.Revision == baseCondition.Revision && c.TagPolicy == baseCondition.TagPolicy {
 			return c
 		}
 	}
 	return buildv1beta1.ImageCondition{
 		LastTransitionTime: nil,
+		Type:               condType,
 		Status:             buildv1beta1.ImageConditionStatusUnknown,
-		Type:               conditionType,
+		Revision:           baseCondition.Revision,
+		ResolvedRevision:   "",
+		TagPolicy:          baseCondition.TagPolicy,
 	}
 }
 func setCondition(conditions []buildv1beta1.ImageCondition, condition buildv1beta1.ImageCondition) []buildv1beta1.ImageCondition {
