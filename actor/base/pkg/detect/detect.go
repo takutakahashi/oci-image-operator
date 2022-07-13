@@ -11,7 +11,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
-	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 	"gopkg.in/fsnotify.v1"
@@ -33,6 +32,16 @@ type DetectOpt struct {
 	ImageNamespace string
 	WatchPath      string
 }
+
+type DetectFile struct {
+	Branches map[string]string `json:"branches"`
+	Tags     map[string]string `json:"tags"`
+}
+
+const (
+	MapKeyLatestTagHash = "latest/hash"
+	MapKeyLatestTagName = "latest/name"
+)
 
 func Init(cfg *rest.Config, opt DetectOpt) (*Detect, error) {
 	if cfg == nil {
@@ -129,27 +138,27 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 	return newImage, nil
 }
 
-func parseJSON(r io.Reader) (*types.DetectFile, error) {
+func parseJSON(r io.Reader) (*DetectFile, error) {
 	scanner := bufio.NewScanner(r)
 	buf := []byte{}
 	for scanner.Scan() {
 		buf = append(buf, scanner.Bytes()...)
 	}
 	logrus.Info(string(buf))
-	file := &types.DetectFile{}
+	file := &DetectFile{}
 	if err := json.Unmarshal(buf, file); err != nil {
 		return nil, err
 	}
 	return file, nil
 }
 
-func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *types.DetectFile) []buildv1beta1.ImageCondition {
+func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
 	for branch, resolvedRevision := range detectFile.Branches {
 		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
 	for key, resolvedRevision := range detectFile.Tags {
-		if key == types.MapKeyLatestTagName || key == types.MapKeyLatestTagHash {
+		if key == MapKeyLatestTagName || key == MapKeyLatestTagHash {
 			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
@@ -157,9 +166,9 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *type
 	for i, c := range conditions {
 		switch c.TagPolicy {
 		case buildv1beta1.ImageTagPolicyTypeTagHash:
-			conditions[i].ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagHash]
+			conditions[i].ResolvedRevision = detectFile.Tags[MapKeyLatestTagHash]
 		case buildv1beta1.ImageTagPolicyTypeTagName:
-			conditions[i].ResolvedRevision = detectFile.Tags[types.MapKeyLatestTagName]
+			conditions[i].ResolvedRevision = detectFile.Tags[MapKeyLatestTagName]
 		case buildv1beta1.ImageTagPolicyTypeBranchHash:
 			conditions[i].ResolvedRevision = detectFile.Branches[c.Revision]
 		case buildv1beta1.ImageTagPolicyTypeBranchName:
