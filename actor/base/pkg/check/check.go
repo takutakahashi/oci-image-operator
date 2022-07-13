@@ -72,9 +72,9 @@ func fileExists(filename string) bool {
 	return err == nil
 }
 
-func GetCheckFile(image *buildv1beta1.Image) CheckFile {
+func GetCheckFile(conds []buildv1beta1.ImageCondition) CheckFile {
 	prs := []Revision{}
-	for _, c := range image.Status.Conditions {
+	for _, c := range conds {
 		if c.TagPolicy == buildv1beta1.ImageTagPolicyTypeBranchHash {
 			prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision: c.ResolvedRevision})
 
