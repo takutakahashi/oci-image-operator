@@ -87,12 +87,12 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 }
 
 func EnsureUpload(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
-	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeUploaded)
+	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked)
 	if conds == nil {
 		return image, nil
 	}
-	for _, uploadedCondition := range conds {
-		checkedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, uploadedCondition)
+	for _, checkedCondition := range conds {
+		uploadedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, checkedCondition)
 		if uploadedCondition.LastTransitionTime != nil && checkedCondition.LastTransitionTime.Before(uploadedCondition.LastTransitionTime) && uploadedCondition.Status == buildv1beta1.ImageConditionStatusTrue {
 			logrus.Info("image already uploaded")
 			continue
