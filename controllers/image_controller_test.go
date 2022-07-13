@@ -122,6 +122,30 @@ var _ = Describe("Image controller", func() {
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
+		It("upload should success", func() {
+			ctx := context.TODO()
+			image := newImage("test-upload")
+			inClusterImage := &buildv1beta1.Image{}
+			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			err = toChecked(image, "master", "test12345")
+			Expect(err).To(Succeed())
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
+					return err
+				}
+				if len(inClusterImage.Status.Conditions) == 0 {
+					logrus.Info(image.Status.Conditions)
+					return fmt.Errorf("conditions are not found")
+				}
+				job := batchv1.Job{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-upload-upload-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+		})
 	})
 	//! [test]
 })
@@ -172,6 +196,46 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 				LastTransitionTime: &t,
 				Type:               buildv1beta1.ImageConditionTypeDetected,
 				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Revision:           "master2",
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+		},
+	}
+	return k8sClient.Status().Update(context.TODO(), image, &client.UpdateOptions{})
+}
+func toChecked(image *buildv1beta1.Image, revision, resolvedRevision string) error {
+	t := metav1.Now()
+	image.Status = buildv1beta1.ImageStatus{
+		Conditions: []buildv1beta1.ImageCondition{
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
+				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
+				Revision:           "master2",
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
+				Type:               buildv1beta1.ImageConditionTypeUploaded,
+				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
+				Type:               buildv1beta1.ImageConditionTypeUploaded,
 				Revision:           "master2",
 				ResolvedRevision:   resolvedRevision,
 				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,

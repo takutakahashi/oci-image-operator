@@ -87,6 +87,25 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 }
 
 func EnsureUpload(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeUploaded)
+	if conds == nil {
+		return image, nil
+	}
+	for _, uploadedCondition := range conds {
+		checkedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, uploadedCondition)
+		if uploadedCondition.LastTransitionTime != nil && checkedCondition.LastTransitionTime.Before(uploadedCondition.LastTransitionTime) && uploadedCondition.Status == buildv1beta1.ImageConditionStatusTrue {
+			logrus.Info("image already uploaded")
+			continue
+		}
+		logrus.Info("uploading image")
+		job, err := uploadJob(image, template, uploadedCondition)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build job")
+		}
+		if err := applyJob(ctx, c, job); err != nil {
+			return nil, errors.Wrap(err, "failed to apply job")
+		}
+	}
 	return image, nil
 }
 
@@ -135,6 +154,31 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", detectedCondition.Revision, detectedCondition.TagPolicy)))
 	h := hex.EncodeToString(r[:])
 	name := fmt.Sprintf("%s-check-%s", image.Name, h[:7])
+	job := batchv1apply.Job(name, "oci-image-operator-system").
+		WithLabels(image.Labels).
+		// TODO: add owner reference
+		WithOwnerReferences().
+		WithAnnotations(image.Annotations).
+		WithSpec(batchv1apply.JobSpec().
+			WithTemplate(podTemplate))
+	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
+	return job, nil
+}
+
+func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, uploadedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
+	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(uploadedCondition.ResolvedRevision)
+	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
+		WithRestartPolicy(corev1.RestartPolicyOnFailure).
+		WithServiceAccountName("oci-image-operator-actor-check").
+		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
+		WithContainers(
+			baseContainer(image.Name, image.Namespace, "upload").WithEnv(revEnv),
+			actorContainer(&template.Spec.Check, "upload").WithEnv(revEnv),
+		))
+	// add sha256 from revision and tag policy
+	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", uploadedCondition.Revision, uploadedCondition.TagPolicy)))
+	h := hex.EncodeToString(r[:])
+	name := fmt.Sprintf("%s-upload-%s", image.Name, h[:7])
 	job := batchv1apply.Job(name, "oci-image-operator-system").
 		WithLabels(image.Labels).
 		// TODO: add owner reference
