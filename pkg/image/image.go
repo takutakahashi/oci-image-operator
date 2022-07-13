@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	appsv1apply "k8s.io/client-go/applyconfigurations/apps/v1"
@@ -63,12 +64,12 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 			i. detectedCondition is transitioned and transition execute after checkCondition
 	**/
 	logrus.Info(image.Status.Conditions)
-	conds := getCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
 	if conds == nil {
 		return image, nil
 	}
 	for _, detectedCondition := range conds {
-		checkedCondition := getConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, detectedCondition)
+		checkedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, detectedCondition)
 		if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
 			logrus.Info("image already checked")
 			continue
@@ -220,7 +221,7 @@ func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyCo
 	})
 }
 
-func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {
+func GetCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {
 	ret := []buildv1beta1.ImageCondition{}
 	for _, c := range conditions {
 		if c.Type == conditionType {
@@ -230,7 +231,7 @@ func getCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv
 	return ret
 }
 
-func getConditionBy(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, baseCondition buildv1beta1.ImageCondition) buildv1beta1.ImageCondition {
+func GetConditionBy(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, baseCondition buildv1beta1.ImageCondition) buildv1beta1.ImageCondition {
 	for _, c := range conditions {
 		if c.Type == condType && c.Revision == baseCondition.Revision && c.TagPolicy == baseCondition.TagPolicy {
 			return c
@@ -245,7 +246,7 @@ func getConditionBy(conditions []buildv1beta1.ImageCondition, condType buildv1be
 		TagPolicy:          baseCondition.TagPolicy,
 	}
 }
-func setCondition(conditions []buildv1beta1.ImageCondition, condition buildv1beta1.ImageCondition) []buildv1beta1.ImageCondition {
+func SetCondition(conditions []buildv1beta1.ImageCondition, condition buildv1beta1.ImageCondition) []buildv1beta1.ImageCondition {
 	for i, c := range conditions {
 		if c.Type == condition.Type && c.Revision == condition.Revision && c.TagPolicy == condition.TagPolicy {
 			conditions[i] = condition
@@ -254,4 +255,23 @@ func setCondition(conditions []buildv1beta1.ImageCondition, condition buildv1bet
 	}
 	conditions = append(conditions, condition)
 	return conditions
+}
+
+func UpdateCondition(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
+	c := GetConditionBy(conditions, condType, buildv1beta1.ImageCondition{TagPolicy: tagPolicy, Revision: revision})
+	now := v1.Now()
+	if c.ResolvedRevision != resolvedRevision {
+		c.Status = buildv1beta1.ImageConditionStatusTrue
+		c.LastTransitionTime = &now
+	} else {
+		c.Status = buildv1beta1.ImageConditionStatusFalse
+		c.LastTransitionTime = &now
+	}
+
+	return SetCondition(conditions, c)
+
+}
+
+func InWorkDir(path string) string {
+	return fmt.Sprintf("%s/%s", actorWorkDir, path)
 }
