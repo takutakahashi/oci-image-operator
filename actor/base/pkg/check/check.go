@@ -19,6 +19,7 @@ type CheckFile struct {
 type Revision struct {
 	Revision         string
 	ResolvedRevision string
+	TagPolicy        buildv1beta1.ImageTagPolicyType
 }
 
 type Check struct {
@@ -68,6 +69,7 @@ func (c *Check) ActorOutputExists() bool {
 	return fileExists(imageutil.InWorkDir("output"))
 }
 func fileExists(filename string) bool {
+	//FIXME: waste of memory
 	_, err := ioutil.ReadFile(filename)
 	return err == nil
 }
@@ -75,10 +77,7 @@ func fileExists(filename string) bool {
 func GetCheckFile(conds []buildv1beta1.ImageCondition) CheckFile {
 	prs := []Revision{}
 	for _, c := range conds {
-		if c.TagPolicy == buildv1beta1.ImageTagPolicyTypeBranchHash {
-			prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision: c.ResolvedRevision})
-
-		}
+		prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision: c.ResolvedRevision, TagPolicy: c.TagPolicy})
 	}
 	return CheckFile{
 		Revisions: prs,
