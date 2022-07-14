@@ -11,16 +11,18 @@ import (
 func TestGetCheckFile(t *testing.T) {
 	now := v1.Now()
 	type args struct {
-		conds []buildv1beta1.ImageCondition
+		registry string
+		conds    []buildv1beta1.ImageCondition
 	}
 	tests := []struct {
 		name string
 		args args
-		want CheckFile
+		want CheckInput
 	}{
 		{
 			name: "ok",
 			args: args{
+				registry: "reg",
 				conds: []buildv1beta1.ImageCondition{
 					{
 						LastTransitionTime: &now,
@@ -32,12 +34,12 @@ func TestGetCheckFile(t *testing.T) {
 					},
 				},
 			},
-			want: CheckFile{
+			want: CheckInput{
 				Revisions: []Revision{
 					{
-						Revision:         "master",
+						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
-						TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+						Exist:            false,
 					},
 				},
 			},
@@ -45,7 +47,7 @@ func TestGetCheckFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetCheckFile(tt.args.conds); !reflect.DeepEqual(got, tt.want) {
+			if got := GetCheckInput(tt.args.registry, tt.args.conds); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetCheckFile() = %v, want %v", got, tt.want)
 			}
 		})

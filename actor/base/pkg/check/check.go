@@ -12,14 +12,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CheckFile struct {
+type CheckInput struct {
 	Revisions []Revision
 }
 
 type Revision struct {
-	Revision         string
+	Registry         string
 	ResolvedRevision string
-	TagPolicy        buildv1beta1.ImageTagPolicyType
+	Exist            bool
 }
 
 type Check struct {
@@ -31,6 +31,11 @@ type Check struct {
 type CheckOpt struct {
 	ImageName      string
 	ImageNamespace string
+	ImageTarget    string
+}
+
+func (c CheckInput) ParseJSON(path string) error {
+	return nil
 }
 
 func Init(cfg *rest.Config, opt CheckOpt) (*Check, error) {
@@ -53,7 +58,8 @@ func (c *Check) Run(ctx context.Context) error {
 		return err
 	}
 	if !c.ActorInputExists() {
-		panic("not implemented")
+		conds := imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+		return GetCheckInput(c.opt.ImageTarget, conds).ParseJSON(imageutil.InWorkDir("input"))
 	}
 	if !c.ActorOutputExists() {
 		panic("not implemented")
@@ -74,12 +80,12 @@ func fileExists(filename string) bool {
 	return err == nil
 }
 
-func GetCheckFile(conds []buildv1beta1.ImageCondition) CheckFile {
+func GetCheckInput(registry string, conds []buildv1beta1.ImageCondition) CheckInput {
 	prs := []Revision{}
 	for _, c := range conds {
-		prs = append(prs, Revision{Revision: c.Revision, ResolvedRevision: c.ResolvedRevision, TagPolicy: c.TagPolicy})
+		prs = append(prs, Revision{Registry: registry, ResolvedRevision: c.ResolvedRevision})
 	}
-	return CheckFile{
+	return CheckInput{
 		Revisions: prs,
 	}
 }
