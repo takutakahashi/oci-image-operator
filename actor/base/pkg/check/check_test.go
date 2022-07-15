@@ -2,12 +2,15 @@ package check
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
 
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestGetCheckFile(t *testing.T) {
@@ -41,7 +44,6 @@ func TestGetCheckFile(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
-						Exist:            false,
 					},
 				},
 			},
@@ -73,11 +75,11 @@ func TestCheckInput_Export(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
-						Exist:            false,
+						Exist:            buildv1beta1.ImageConditionStatusFalse,
 					},
 				},
 			},
-			wantW: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":false}]}`,
+			wantW: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":"False"}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -110,7 +112,7 @@ func TestImportOutput(t *testing.T) {
 		{
 			name: "ok",
 			args: args{
-				r: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":false}]}`,
+				r: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":"False"}]}`,
 			},
 			wantErr: false,
 			want: CheckOutput{
@@ -118,7 +120,7 @@ func TestImportOutput(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
-						Exist:            false,
+						Exist:            buildv1beta1.ImageConditionStatusFalse,
 					},
 				},
 			},
@@ -134,6 +136,43 @@ func TestImportOutput(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ImportOutput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheck_UpdateImage(t *testing.T) {
+	type fields struct {
+		c   client.Client
+		ch  chan bool
+		opt CheckOpt
+		in  io.Writer
+		out io.Reader
+	}
+	type args struct {
+		ctx    context.Context
+		image  *buildv1beta1.Image
+		output CheckOutput
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Check{
+				c:   tt.fields.c,
+				ch:  tt.fields.ch,
+				opt: tt.fields.opt,
+				in:  tt.fields.in,
+				out: tt.fields.out,
+			}
+			if err := c.UpdateImage(tt.args.ctx, tt.args.image, tt.args.output); (err != nil) != tt.wantErr {
+				t.Errorf("Check.UpdateImage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

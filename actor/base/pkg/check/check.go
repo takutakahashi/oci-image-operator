@@ -22,9 +22,9 @@ type CheckOutput struct {
 }
 
 type Revision struct {
-	Registry         string `json:"registry"`
-	ResolvedRevision string `json:"resolved_revision"`
-	Exist            bool   `json:"exist"`
+	Registry         string                            `json:"registry"`
+	ResolvedRevision string                            `json:"resolved_revision"`
+	Exist            buildv1beta1.ImageConditionStatus `json:"exist"`
 }
 
 type Check struct {
@@ -79,10 +79,22 @@ func (c *Check) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		panic(output)
+		if err := c.UpdateImage(ctx, image, output); err != nil {
+			return err
+		}
 	}
-	panic(image)
-	//return nil
+	return nil
+}
+
+func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
+	for _, rev := range output.Revisions {
+		for i, c := range image.Status.Conditions {
+			if c.ResolvedRevision == rev.ResolvedRevision {
+				image.Status.Conditions[i].Status = rev.Exist
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Check) ActorInputExists() bool {
