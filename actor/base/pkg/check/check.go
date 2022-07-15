@@ -8,6 +8,7 @@ import (
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -87,14 +88,18 @@ func (c *Check) Run(ctx context.Context) error {
 }
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
+	now := metav1.Now()
 	for _, rev := range output.Revisions {
 		for i, c := range image.Status.Conditions {
 			if c.ResolvedRevision == rev.ResolvedRevision {
+				if image.Status.Conditions[i].Status != rev.Exist {
+					image.Status.Conditions[i].LastTransitionTime = &now
+				}
 				image.Status.Conditions[i].Status = rev.Exist
 			}
 		}
 	}
-	return nil
+	return c.c.Status().Update(ctx, image, &client.UpdateOptions{})
 }
 
 func (c *Check) ActorInputExists() bool {
