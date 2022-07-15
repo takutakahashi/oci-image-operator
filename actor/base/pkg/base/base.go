@@ -1,8 +1,12 @@
 package base
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"io"
 
+	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,4 +41,26 @@ func GetImageFlowTemplate(ctx context.Context, c client.Client, name, namespace 
 		return nil, err
 	}
 	return i, nil
+}
+
+func ParseJSON(obj interface{}, w io.Writer) error {
+	buf, err := json.Marshal(&obj)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(buf)
+	return err
+}
+
+func MarshalJSON(obj interface{}, r io.Reader) error {
+	scanner := bufio.NewScanner(r)
+	buf := []byte{}
+	for scanner.Scan() {
+		buf = append(buf, scanner.Bytes()...)
+	}
+	logrus.Info(string(buf))
+	if err := json.Unmarshal(buf, obj); err != nil {
+		return err
+	}
+	return nil
 }

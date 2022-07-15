@@ -2,6 +2,7 @@ package check
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
@@ -13,19 +14,25 @@ import (
 )
 
 type CheckInput struct {
-	Revisions []Revision
+	Revisions []Revision `json:"revisions"`
+}
+
+type CheckOutput struct {
+	Revisions []Revision `json:"revisions"`
 }
 
 type Revision struct {
-	Registry         string
-	ResolvedRevision string
-	Exist            bool
+	Registry         string `json:"registry"`
+	ResolvedRevision string `json:"resolved_revision"`
+	Exist            bool   `json:"exist"`
 }
 
 type Check struct {
 	c   client.Client
 	ch  chan bool
 	opt CheckOpt
+	in  io.Writer
+	out io.Reader
 }
 
 type CheckOpt struct {
@@ -34,8 +41,14 @@ type CheckOpt struct {
 	ImageTarget    string
 }
 
-func (c CheckInput) ParseJSON(path string) error {
-	return nil
+func (c CheckInput) Export(w io.Writer) error {
+	return base.ParseJSON(&c, w)
+}
+
+func ImportOutput(r io.Reader) (CheckOutput, error) {
+	c := CheckOutput{}
+	err := base.MarshalJSON(&c, r)
+	return c, err
 }
 
 func Init(cfg *rest.Config, opt CheckOpt) (*Check, error) {
@@ -59,10 +72,14 @@ func (c *Check) Run(ctx context.Context) error {
 	}
 	if !c.ActorInputExists() {
 		conds := imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
-		return GetCheckInput(c.opt.ImageTarget, conds).ParseJSON(imageutil.InWorkDir("input"))
+		return GetCheckInput(c.opt.ImageTarget, conds).Export(c.in)
 	}
 	if !c.ActorOutputExists() {
-		panic("not implemented")
+		output, err := ImportOutput(c.out)
+		if err != nil {
+			return err
+		}
+		panic(output)
 	}
 	panic(image)
 	//return nil
@@ -88,4 +105,8 @@ func GetCheckInput(registry string, conds []buildv1beta1.ImageCondition) CheckIn
 	return CheckInput{
 		Revisions: prs,
 	}
+}
+
+func GetCheckOutput() CheckOutput {
+	return CheckOutput{Revisions: []Revision{}}
 }
