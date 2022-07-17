@@ -5,10 +5,10 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,17 +88,18 @@ func (c *Check) Run(ctx context.Context) error {
 }
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
-	now := metav1.Now()
 	for _, rev := range output.Revisions {
-		for i, c := range image.Status.Conditions {
-			if c.ResolvedRevision == rev.ResolvedRevision {
-				if image.Status.Conditions[i].Status != rev.Exist {
-					image.Status.Conditions[i].LastTransitionTime = &now
-				}
-				image.Status.Conditions[i].Status = rev.Exist
-			}
-		}
+		conds := imageutil.UpdateCondition(
+			image.Status.Conditions,
+			buildv1beta1.ImageConditionTypeUploaded,
+			&rev.Exist,
+			buildv1beta1.ImageTagPolicyTypeUnused,
+			"",
+			rev.ResolvedRevision,
+		)
+		image.Status.Conditions = conds
 	}
+	logrus.Info(image.Status.Conditions)
 	return c.c.Status().Update(ctx, image, &client.UpdateOptions{})
 }
 

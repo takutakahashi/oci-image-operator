@@ -8,9 +8,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/internal/testutil"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestGetCheckFile(t *testing.T) {
@@ -142,9 +146,8 @@ func TestImportOutput(t *testing.T) {
 }
 
 func TestCheck_UpdateImage(t *testing.T) {
+	ctx := context.TODO()
 	type fields struct {
-		c   client.Client
-		ch  chan bool
 		opt CheckOpt
 		in  io.Writer
 		out io.Reader
@@ -155,24 +158,68 @@ func TestCheck_UpdateImage(t *testing.T) {
 		output CheckOutput
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name          string
+		fields        fields
+		args          args
+		wantErr       bool
+		wantCondition []buildv1beta1.ImageCondition
 	}{
-		// TODO: Add test cases.
+		{
+			name: "ok",
+			fields: fields{
+				opt: CheckOpt{
+					ImageName:      "test",
+					ImageNamespace: "default",
+					ImageTarget:    "target",
+				},
+			},
+			args: args{
+				ctx: ctx,
+				output: CheckOutput{
+					Revisions: []Revision{
+						{
+							Registry:         "reg",
+							ResolvedRevision: "resolved",
+							Exist:            buildv1beta1.ImageConditionStatusFalse,
+						},
+					},
+				},
+			},
+			wantCondition: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeUploaded,
+					Status:           buildv1beta1.ImageConditionStatusFalse,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+					ResolvedRevision: "resolved",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.image == nil {
+				tt.args.image = testutil.NewImage()
+			}
+			cli, s := testutil.Setup(tt.args.image)
 			c := &Check{
-				c:   tt.fields.c,
-				ch:  tt.fields.ch,
+				c:   cli,
 				opt: tt.fields.opt,
 				in:  tt.fields.in,
 				out: tt.fields.out,
 			}
+			defer s()
+			if err := c.c.Get(ctx, types.NamespacedName{Name: tt.args.image.Name, Namespace: tt.args.image.Namespace}, tt.args.image); err != nil {
+				t.Errorf("failed to get image")
+			}
 			if err := c.UpdateImage(tt.args.ctx, tt.args.image, tt.args.output); (err != nil) != tt.wantErr {
 				t.Errorf("Check.UpdateImage() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			savedObj, err := base.GetImage(ctx, c.c, c.opt.ImageName, c.opt.ImageNamespace)
+			if err != nil {
+				t.Errorf("Check.UpdateImage() error = %v", err)
+			}
+			if d := cmp.Diff(savedObj.Status.Conditions, tt.wantCondition, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); d != "" {
+				t.Errorf("Diff detected. %v", d)
 			}
 		})
 	}

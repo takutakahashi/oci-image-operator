@@ -50,6 +50,7 @@ var (
 	ImageTagPolicyTypeBranchName ImageTagPolicyType = "branchName"
 	ImageTagPolicyTypeTagHash    ImageTagPolicyType = "tagHash"
 	ImageTagPolicyTypeTagName    ImageTagPolicyType = "tagName"
+	ImageTagPolicyTypeUnused     ImageTagPolicyType = "unused"
 )
 
 type ImageTarget struct {

@@ -154,12 +154,12 @@ func parseJSON(r io.Reader) (*DetectFile, error) {
 
 func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
 	for branch, resolvedRevision := range detectFile.Branches {
-		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
+		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, nil,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
 	for key, resolvedRevision := range detectFile.Tags {
 		if key == MapKeyLatestTagName || key == MapKeyLatestTagHash {
-			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected,
+			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, nil,
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}

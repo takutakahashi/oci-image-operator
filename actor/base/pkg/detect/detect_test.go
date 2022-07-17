@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -14,70 +13,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
-	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/internal/testutil"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func newImage() *buildv1beta1.Image {
-	return &buildv1beta1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-		Spec: buildv1beta1.ImageSpec{
-			TemplateName: "test",
-			Repository: buildv1beta1.ImageRepository{
-				URL: "https://github.com/taktuakahashi/testbed.git",
-				TagPolicies: []buildv1beta1.ImageTagPolicy{
-					{
-						Policy:   buildv1beta1.ImageTagPolicyTypeTagHash,
-						Revision: "master",
-					},
-				},
-			},
-			Targets: []buildv1beta1.ImageTarget{
-				{
-					Name: "ghcr.io/takutakahashi/test",
-					//Auth: buildv1beta1.ImageAuth{
-					//	Type:       buildv1beta1.ImageAuthTypeBasic,
-					//	SecretName: "test",
-					//},
-				},
-			},
-		},
-	}
-}
-
-func setup() (client.Client, func() error) {
-	os.Setenv("IMAGE_NAME", "test")
-	os.Setenv("IMAGE_NAMESPACE", "default")
-	testEnv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("../../../..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
-	}
-
-	cfg, err := testEnv.Start()
-	if err != nil {
-		panic(err)
-	}
-	c, err := base.GenClient(cfg)
-	if err != nil {
-		panic(err)
-	}
-	ctx := context.TODO()
-	err = c.Create(ctx, newImage())
-	if err != nil {
-		panic(err)
-	}
-	return c, testEnv.Stop
-}
-
 func TestDetect_UpdateImage(t *testing.T) {
-	c, s := setup()
+	c, s := testutil.Setup(testutil.NewImage())
 	defer s()
 	type fields struct {
 		c         client.Client
@@ -149,7 +92,7 @@ func TestDetect_UpdateImage(t *testing.T) {
 
 func TestDetect_Run(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
-	c, s := setup()
+	c, s := testutil.Setup(testutil.NewImage())
 	defer s()
 	type fields struct {
 		json string

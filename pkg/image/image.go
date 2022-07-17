@@ -301,18 +301,28 @@ func SetCondition(conditions []buildv1beta1.ImageCondition, condition buildv1bet
 	return conditions
 }
 
-func UpdateCondition(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
-	c := GetConditionBy(conditions, condType, buildv1beta1.ImageCondition{TagPolicy: tagPolicy, Revision: revision})
+func UpdateCondition(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, status *buildv1beta1.ImageConditionStatus, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
+	cond := GetConditionBy(conditions, condType, buildv1beta1.ImageCondition{TagPolicy: tagPolicy, Revision: revision})
 	now := v1.Now()
-	if c.ResolvedRevision != resolvedRevision {
-		c.Status = buildv1beta1.ImageConditionStatusTrue
-		c.LastTransitionTime = &now
+	if status == nil {
+		if cond.ResolvedRevision != resolvedRevision {
+			cond.Status = buildv1beta1.ImageConditionStatusTrue
+			cond.LastTransitionTime = &now
+		} else {
+			cond.Status = buildv1beta1.ImageConditionStatusFalse
+			cond.LastTransitionTime = &now
+		}
 	} else {
-		c.Status = buildv1beta1.ImageConditionStatusFalse
-		c.LastTransitionTime = &now
+		if cond.ResolvedRevision != resolvedRevision {
+			cond.ResolvedRevision = resolvedRevision
+			cond.LastTransitionTime = &now
+		}
+		if cond.Status != *status {
+			cond.Status = *status
+			cond.LastTransitionTime = &now
+		}
 	}
-
-	return SetCondition(conditions, c)
+	return SetCondition(conditions, cond)
 
 }
 
