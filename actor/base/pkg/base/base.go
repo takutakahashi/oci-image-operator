@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -43,7 +45,19 @@ func GetImageFlowTemplate(ctx context.Context, c client.Client, name, namespace 
 	return i, nil
 }
 
+func InWorkDir(path string) string {
+	if s := os.Getenv("WORK_DIR"); s == "" {
+		return fmt.Sprintf("/tmp/actor-base/%s", path)
+	} else {
+		return fmt.Sprintf("%s/%s", s, path)
+	}
+}
+
 func ParseJSON(obj interface{}, w io.Writer) error {
+	logrus.Info("========")
+	if obj == nil {
+		return nil
+	}
 	buf, err := json.Marshal(&obj)
 	if err != nil {
 		return err
