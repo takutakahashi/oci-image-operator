@@ -266,7 +266,14 @@ func TestCheck_Run(t *testing.T) {
 				in:  `{"revisions":[{"registry":"reg","resolved_revision":"run","exist":"False"}]}`,
 				out: `{"revisions":[{"registry":"reg","resolved_revision":"run","exist":"False"}]}`,
 			},
-			want: []buildv1beta1.ImageCondition{},
+			want: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeUploaded,
+					Status:           buildv1beta1.ImageConditionStatusFalse,
+					ResolvedRevision: "run",
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -290,7 +297,6 @@ func TestCheck_Run(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				defer c.Stop()
 				t.Log("start file create")
 				ff, err := os.Create(fmt.Sprintf("%s/output", f))
 				if err != nil {

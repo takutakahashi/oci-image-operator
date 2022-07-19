@@ -102,9 +102,11 @@ func (c *Check) Run(ctx context.Context) error {
 				}
 				logrus.Info("====== detected file changes =======")
 				logrus.Info(e)
-				if err := c.Execute(ctx); err != nil {
-					logrus.Error("error from execute")
-					logrus.Error(err)
+				if e.Op == fsnotify.Write {
+					if err := c.Execute(ctx); err != nil {
+						logrus.Error("error from execute")
+						logrus.Error(err)
+					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
