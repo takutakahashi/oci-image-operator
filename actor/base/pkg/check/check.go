@@ -140,7 +140,7 @@ func (c *Check) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.ActorOutputExists() {
+	if base.ActorOutputExists() {
 		logrus.Info("start output func")
 		output, err := ImportOutput(c.out)
 		logrus.Info(output)
@@ -153,7 +153,7 @@ func (c *Check) Execute(ctx context.Context) error {
 		c.Stop()
 		return nil
 	}
-	if !c.ActorInputExists() {
+	if !base.ActorInputExists() {
 		logrus.Info("start input func")
 		conds := imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
 		return GetCheckInput(c.opt.ImageTarget, conds).Export(c.in)
@@ -177,18 +177,6 @@ func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, outp
 	}
 	logrus.Info(image.Status.Conditions)
 	return c.c.Status().Update(ctx, image, &client.UpdateOptions{})
-}
-
-func (c *Check) ActorInputExists() bool {
-	return fileExists(base.InWorkDir("input"))
-}
-func (c *Check) ActorOutputExists() bool {
-	return fileExists(base.InWorkDir("output"))
-}
-func fileExists(filename string) bool {
-	//FIXME: waste of memory
-	_, err := os.Open(filename)
-	return err == nil
 }
 
 func GetCheckInput(registry string, conds []buildv1beta1.ImageCondition) CheckInput {

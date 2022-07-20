@@ -78,3 +78,16 @@ func MarshalJSON(obj interface{}, r io.Reader) error {
 	}
 	return nil
 }
+
+func ActorInputExists() bool {
+	return fileExists(InWorkDir("input"))
+}
+func ActorOutputExists() bool {
+	return fileExists(InWorkDir("output"))
+}
+
+func fileExists(filename string) bool {
+	//FIXME: waste of memory
+	_, err := os.Open(filename)
+	return err == nil
+}
