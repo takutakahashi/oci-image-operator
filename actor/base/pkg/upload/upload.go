@@ -9,18 +9,17 @@ import (
 )
 
 type Input struct {
-	Name string
-	Tag  string
+	Builds []ImageBuild `json:"builds"`
 }
 
 type Output struct {
-	Results []Result
+	Builds []ImageBuild `json:"builds"`
 }
 
-type Result struct {
-	Target    string `json:"target"`
-	Tag       string `json:"tag"`
-	Succeeded buildv1beta1.ImageConditionStatus
+type ImageBuild struct {
+	Target    string                            `json:"target"`
+	Tag       string                            `json:"tag"`
+	Succeeded buildv1beta1.ImageConditionStatus `json:"succeeded,omitempty"`
 }
 
 type Opt struct {
@@ -40,11 +39,16 @@ func (u *Upload) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	inputs := getImagesNeedToBeBuilt(image.Status.Conditions)
-	panic(inputs)
+	input := getInput(u.opt.ImageTarget, image.Status.Conditions)
+	panic(input)
 }
 
-func getImagesNeedToBeBuilt(conditions []buildv1beta1.ImageCondition) []Input {
-	ret := []Input{}
-	return ret
+func getInput(target string, conditions []buildv1beta1.ImageCondition) Input {
+	builds := []ImageBuild{}
+	for _, cond := range conditions {
+		if cond.Type == buildv1beta1.ImageConditionTypeUploaded && cond.Status != buildv1beta1.ImageConditionStatusTrue {
+			builds = append(builds, ImageBuild{Tag: cond.ResolvedRevision, Target: target})
+		}
+	}
+	return Input{Builds: builds}
 }
