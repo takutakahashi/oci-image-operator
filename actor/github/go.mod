@@ -12,7 +12,10 @@ require (
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 )
 
-replace github.com/takutakahashi/oci-image-operator/actor/base => ../base
+replace (
+	github.com/takutakahashi/oci-image-operator/actor/base => ../base
+	github.com/takutakahashi/oci-image-operator => ../..
+)
 
 require (
 	github.com/google/go-github/v41 v41.0.0 // indirect

@@ -39,9 +39,8 @@ type ImageRepository struct {
 }
 
 type ImageTagPolicy struct {
-	Policy           ImageTagPolicyType `json:"policy,omitempty"`
-	Revision         string             `json:"revision,omitempty"`
-	ResolvedRevision string             `json:"resolvedRevision,omitempty"`
+	Policy   ImageTagPolicyType `json:"policy,omitempty"`
+	Revision string             `json:"revision,omitempty"`
 }
 
 type ImageTagPolicyType string
@@ -51,6 +50,7 @@ var (
 	ImageTagPolicyTypeBranchName ImageTagPolicyType = "branchName"
 	ImageTagPolicyTypeTagHash    ImageTagPolicyType = "tagHash"
 	ImageTagPolicyTypeTagName    ImageTagPolicyType = "tagName"
+	ImageTagPolicyTypeUnused     ImageTagPolicyType = "unused"
 )
 
 type ImageTarget struct {
@@ -70,9 +70,41 @@ var ImageAuthTypeBasic ImageAuthType = "basic"
 
 // ImageStatus defines the observed state of Image
 type ImageStatus struct {
+	Conditions []ImageCondition `json:"conditions,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
+
+type ImageCondition struct {
+
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// Type of Condition. ex: Detected, Checked, Uploaded
+	Type ImageConditionType `json:"type,omitempty"`
+
+	// Status is the status of the condition. Can be True, False, Unknown.
+	Status           ImageConditionStatus `json:"status,omitempty"`
+	Revision         string               `json:"revision,omitempty"`
+	ResolvedRevision string               `json:"resolvedRevision,omitempty"`
+	TagPolicy        ImageTagPolicyType   `json:"tagPolicy,omitempty"`
+}
+
+type ImageConditionType string
+
+var (
+	ImageConditionTypeDetected ImageConditionType = "detected"
+	ImageConditionTypeChecked  ImageConditionType = "checked"
+	ImageConditionTypeUploaded ImageConditionType = "uploaded"
+)
+
+type ImageConditionStatus string
+
+var (
+	ImageConditionStatusTrue    ImageConditionStatus = "True"
+	ImageConditionStatusFalse   ImageConditionStatus = "False"
+	ImageConditionStatusUnknown ImageConditionStatus = "Unknown"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
