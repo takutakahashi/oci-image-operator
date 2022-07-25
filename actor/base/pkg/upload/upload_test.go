@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -175,6 +176,97 @@ func TestUpload_UpdateImage(t *testing.T) {
 				return
 			}
 
+		})
+	}
+}
+
+func TestUpload_Import(t *testing.T) {
+	type fields struct {
+		out io.Reader
+	}
+	type args struct {
+		output *Output
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+		want    *Output
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				out: strings.NewReader(
+					`{"builds":[{"target":"test","tag":"test","succeeded":"True"}]}`),
+			},
+			args: args{
+				output: &Output{},
+			},
+			want: &Output{
+				Builds: []ImageBuild{
+					{
+						Target:    "test",
+						Tag:       "test",
+						Succeeded: buildv1beta1.ImageConditionStatusTrue,
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := &Upload{
+				out: tt.fields.out,
+			}
+			if err := u.Import(tt.args.output); (err != nil) != tt.wantErr {
+				t.Errorf("Upload.Import() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(tt.args.output, tt.want); diff != "" {
+				t.Errorf("diff detected. %v", diff)
+			}
+		})
+	}
+}
+
+func TestUpload_Export(t *testing.T) {
+	type args struct {
+		input *Input
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		want    string
+	}{
+		{
+			name: "ok",
+			args: args{
+				input: &Input{
+					Builds: []ImageBuild{
+						{
+							Target:    "test",
+							Tag:       "test",
+							Succeeded: buildv1beta1.ImageConditionStatusTrue,
+						},
+					},
+				},
+			},
+			want: `{"builds":[{"target":"test","tag":"test","succeeded":"True"}]}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &strings.Builder{}
+			u := &Upload{
+				in: w,
+			}
+			if err := u.Export(tt.args.input); (err != nil) != tt.wantErr {
+				t.Errorf("Upload.Export() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(w.String(), tt.want); diff != "" {
+				t.Errorf("diff detected. %v", diff)
+			}
 		})
 	}
 }
