@@ -94,7 +94,7 @@ func (u *Upload) Import(output *Output) error {
 		if err != nil {
 			return err
 		}
-		u.in = r
+		u.out = r
 	}
 	return base.MarshalJSON(output, u.out)
 
@@ -113,5 +113,7 @@ func (u *Upload) UpdateImage(ctx context.Context, image *buildv1beta1.Image, out
 }
 
 func (u *Upload) Stop() {
-	u.ch <- true
+	if u.ch != nil {
+		u.ch <- true
+	}
 }
