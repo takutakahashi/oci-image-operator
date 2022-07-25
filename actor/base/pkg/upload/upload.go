@@ -2,9 +2,12 @@ package upload
 
 import (
 	"context"
+	"io"
+	"os"
 
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
+	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,11 +29,14 @@ type Opt struct {
 	ImageName      string
 	ImageNamespace string
 	ImageTarget    string
+	WatchPath      string
 }
 
 type Upload struct {
 	c   client.Client
 	ch  chan bool
+	in  io.Writer
+	out io.Reader
 	opt Opt
 }
 
@@ -40,7 +46,25 @@ func (u *Upload) Execute(ctx context.Context) error {
 		return err
 	}
 	input := getInput(u.opt.ImageTarget, image.Status.Conditions)
-	panic(input)
+	if base.ActorOutputExists() {
+		output := &Output{}
+		if err := u.Import(output); err != nil {
+			return err
+		}
+		if err := u.UpdateImage(ctx, image, output); err != nil {
+			return err
+		}
+		u.Stop()
+		return nil
+
+	}
+	if !base.ActorInputExists() {
+		if err := u.Export(&input); err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
 }
 
 func getInput(target string, conditions []buildv1beta1.ImageCondition) Input {
@@ -51,4 +75,43 @@ func getInput(target string, conditions []buildv1beta1.ImageCondition) Input {
 		}
 	}
 	return Input{Builds: builds}
+}
+
+func (u *Upload) Export(input *Input) error {
+	if u.in == nil {
+		w, err := os.Create(base.InWorkDir("input"))
+		if err != nil {
+			return err
+		}
+		u.in = w
+	}
+	return base.ParseJSON(input, u.in)
+}
+
+func (u *Upload) Import(output *Output) error {
+	if u.out == nil {
+		r, err := os.Open(base.InWorkDir("output"))
+		if err != nil {
+			return err
+		}
+		u.in = r
+	}
+	return base.MarshalJSON(output, u.out)
+
+}
+
+func (u *Upload) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output *Output) error {
+	for _, build := range output.Builds {
+		image.Status.Conditions = imageutil.UpdateCondition(image.Status.Conditions,
+			buildv1beta1.ImageConditionTypeUploaded,
+			&build.Succeeded,
+			buildv1beta1.ImageTagPolicyTypeUnused,
+			"",
+			build.Tag)
+	}
+	return u.c.Status().Update(ctx, image, &client.UpdateOptions{})
+}
+
+func (u *Upload) Stop() {
+	u.ch <- true
 }
