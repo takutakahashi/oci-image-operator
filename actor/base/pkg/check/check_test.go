@@ -278,7 +278,7 @@ func TestCheck_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10000*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 20000*time.Millisecond)
 			f, err := os.MkdirTemp(".", "test")
 			if err != nil {
 				panic(err)
@@ -297,6 +297,8 @@ func TestCheck_Run(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				// wait for creating input file
+				time.Sleep(10 * time.Second)
 				t.Log("start file create")
 				ff, err := os.Create(fmt.Sprintf("%s/output", f))
 				if err != nil {

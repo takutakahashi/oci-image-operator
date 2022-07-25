@@ -92,6 +92,10 @@ func (c *Check) Run(ctx context.Context) error {
 	}
 	done := make(chan bool)
 	c.ch = done
+	if err := c.Execute(ctx); err != nil {
+		logrus.Error("error from execute")
+		logrus.Error(err)
+	}
 	go func() {
 		for {
 			select {

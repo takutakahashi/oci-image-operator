@@ -8,13 +8,16 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/internal/testutil"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -275,7 +278,7 @@ func TestUpload_Export(t *testing.T) {
 	}
 }
 
-func TestCheck_Execute(t *testing.T) {
+func TestUpload_Execute(t *testing.T) {
 	image := testutil.NewImage()
 	c, s := testutil.Setup(image)
 	defer s()
@@ -347,7 +350,7 @@ func TestCheck_Execute(t *testing.T) {
 				}
 			}
 			if err := c.Execute(context.TODO()); (err != nil) != tt.wantErr {
-				t.Errorf("Check.Execute() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Upload.Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			savedImage, err := base.GetImage(context.TODO(), c.c, image.Name, image.Namespace)
 			if err != nil {
@@ -356,6 +359,103 @@ func TestCheck_Execute(t *testing.T) {
 			if diff := cmp.Diff(savedImage.Status.Conditions, tt.want, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); diff != "" {
 				t.Errorf("diff detected %v", diff)
 			}
+		})
+	}
+}
+
+func TestUpload_Run(t *testing.T) {
+	image := testutil.NewImage()
+	c, s := testutil.Setup(image)
+	defer s()
+	type fields struct {
+		c   client.Client
+		ch  chan bool
+		opt Opt
+	}
+	type fieldsJson struct {
+		in  string
+		out string
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		fieldsJson fieldsJson
+		wantErr    bool
+		want       []buildv1beta1.ImageCondition
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				c:  c,
+				ch: make(chan bool),
+				opt: Opt{
+					ImageName:      image.Name,
+					ImageNamespace: image.Namespace,
+					ImageTarget:    "target",
+					WatchPath:      "",
+				},
+			},
+			fieldsJson: fieldsJson{
+				in:  `{"builds":[{"target":"test","tag":"test","succeeded":"True"}]}`,
+				out: `{"builds":[{"target":"test","tag":"test","succeeded":"True"}]}`,
+			},
+			want: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeUploaded,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					ResolvedRevision: "test",
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20000*time.Millisecond)
+			f, err := os.MkdirTemp(".", "test")
+			if err != nil {
+				panic(err)
+			}
+			defer os.RemoveAll(f)
+			tt.fields.opt.WatchPath = f
+			os.Setenv("WORK_DIR", f)
+			defer os.Setenv("WORK_DIR", "")
+			c := &Upload{
+				c:   tt.fields.c,
+				ch:  tt.fields.ch,
+				opt: tt.fields.opt,
+			}
+			var wg sync.WaitGroup
+			savedObj := buildv1beta1.Image{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// wait for creating input file
+				time.Sleep(10 * time.Second)
+				t.Log("start file create")
+				ff, err := os.Create(fmt.Sprintf("%s/output", f))
+				if err != nil {
+					t.Error(err)
+				}
+				t.Log("writing...")
+				_, err = ff.Write(bytes.NewBufferString(tt.fieldsJson.out).Bytes())
+				if err != nil {
+					t.Error(err)
+				}
+			}()
+			if err := c.Run(ctx); (err != nil) != tt.wantErr {
+				t.Errorf("Upload.Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			wg.Wait()
+			t.Log("getting...")
+			if err := c.c.Get(context.TODO(), types.NamespacedName{Name: image.Name, Namespace: image.Namespace}, &savedObj); err != nil {
+				panic(err)
+			}
+			if diff := cmp.Diff(tt.want, savedObj.Status.Conditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); diff != "" {
+				t.Error("diff detected")
+				t.Error(diff)
+			}
+			cancel()
 		})
 	}
 }

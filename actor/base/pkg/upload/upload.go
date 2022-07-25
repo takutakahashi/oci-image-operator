@@ -5,9 +5,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
+	"gopkg.in/fsnotify.v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,6 +40,51 @@ type Upload struct {
 	in  io.Writer
 	out io.Reader
 	opt Opt
+}
+
+func (c *Upload) Run(ctx context.Context) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	if err := c.Execute(ctx); err != nil {
+		logrus.Error("error from execute")
+		logrus.Error(err)
+	}
+	done := make(chan bool)
+	c.ch = done
+	go func() {
+		for {
+			select {
+			case e, ok := <-watcher.Events:
+				if !ok {
+					logrus.Info("failed to get event")
+					return
+				}
+				logrus.Info("====== detected file changes =======")
+				logrus.Info(e)
+				if e.Op == fsnotify.Write {
+					if err := c.Execute(ctx); err != nil {
+						logrus.Error("error from execute")
+						logrus.Error(err)
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				logrus.Error("error from watcher")
+				logrus.Error(err)
+			}
+		}
+	}()
+
+	watcher.Add(c.opt.WatchPath)
+	if err != nil {
+		logrus.Error(err)
+	}
+	<-done
+	return nil
 }
 
 func (u *Upload) Execute(ctx context.Context) error {
