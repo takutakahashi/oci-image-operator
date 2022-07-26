@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	actorWorkDir = "/tmp/actor"
+	actorWorkDir = "/tmp/actor-base"
 )
 
 func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
