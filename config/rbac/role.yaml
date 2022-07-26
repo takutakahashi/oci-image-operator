@@ -6,12 +6,37 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - build.takutakahashi.dev
   resources:
   - imageflowtemplates
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - build.takutakahashi.dev
   resources:
@@ -30,11 +55,15 @@ rules:
   - images/finalizers
   verbs:
   - update
+  - watch
 - apiGroups:
   - build.takutakahashi.dev
   resources:
   - images/status
   verbs:
+  - create
   - get
+  - list
   - patch
   - update
+  - watch
