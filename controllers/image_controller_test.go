@@ -48,7 +48,7 @@ var _ = Describe("Image controller", func() {
 					deploy); err != nil {
 					return err
 				}
-				if deploy.Spec.Template.Spec.ServiceAccountName != "oci-image-operator-actor-detect" {
+				if deploy.Spec.Template.Spec.ServiceAccountName != "oci-image-operator-controller-manager" {
 					return errors.New("wrong service account name")
 				}
 				c := mainContainer(deploy.Spec.Template.Spec.Containers)
