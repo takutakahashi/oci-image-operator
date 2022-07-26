@@ -10,6 +10,8 @@ import (
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 	"gopkg.in/fsnotify.v1"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,6 +42,21 @@ type Upload struct {
 	in  io.Writer
 	out io.Reader
 	opt Opt
+}
+
+func Init(cfg *rest.Config, opt Opt) (*Upload, error) {
+	if cfg == nil {
+		cfg = ctrl.GetConfigOrDie()
+	}
+	c, err := base.GenClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Upload{
+		c:   c,
+		ch:  make(chan bool),
+		opt: opt,
+	}, nil
 }
 
 func (c *Upload) Run(ctx context.Context) error {
