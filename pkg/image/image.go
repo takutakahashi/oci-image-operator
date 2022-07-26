@@ -119,7 +119,7 @@ func setLabel(name string, b map[string]string) map[string]string {
 
 func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*appsv1apply.DeploymentApplyConfiguration, error) {
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithServiceAccountName("oci-image-operator-actor-detect").
+		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "detect"),
@@ -144,7 +144,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(detectedCondition.ResolvedRevision)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
-		WithServiceAccountName("oci-image-operator-actor-check").
+		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv),
@@ -169,7 +169,7 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(uploadedCondition.ResolvedRevision)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
-		WithServiceAccountName("oci-image-operator-actor-check").
+		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "upload").WithEnv(revEnv),
@@ -195,6 +195,7 @@ func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConf
 		WithName("actor-base").
 		WithImage("ghcr.io/takutakahashi/oci-image-operator/actor-base:beta").
 		WithArgs(role).
+		WithImagePullPolicy(corev1.PullAlways).
 		WithEnv(
 			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
 			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
