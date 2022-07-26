@@ -45,6 +45,8 @@ type ImageReconciler struct {
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=imageflowtemplates,verbs=get;list
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=images/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=build.takutakahashi.dev,resources=images/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;get;create;update;patch;delete
+//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;get;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

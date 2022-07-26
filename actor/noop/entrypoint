@@ -4,8 +4,8 @@ OP=$1
 
 if [[ "$OP" = "detect" ]]; then
   while true; do
-    echo "{\"branches\":{\"master\":\"noopnoopmasterbranch$RANDOM\"},\"tags\":{\"latest/hash\":\"noopnooptaghash$RANDOM\",\"latest/name\":\"noop$RANDOM\"}}" > /tmp/actor-output/detect
-    cat /tmp/actor-output/detect
+    echo "{\"branches\":{\"master\":\"noopnoopmasterbranch$RANDOM\"},\"tags\":{\"latest/hash\":\"noopnooptaghash$RANDOM\",\"latest/name\":\"noop$RANDOM\"}}" > /tmp/actor-base/output
+    cat /tmp/actor-base/output
     sleep 100
   done
 fi

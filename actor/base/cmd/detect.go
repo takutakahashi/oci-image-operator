@@ -26,7 +26,7 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logrus.Info("detect starting")
 		d, err := detect.Init(nil, detect.DetectOpt{
-			WatchPath:      "/tmp/actor-base/detect",
+			WatchPath:      "/tmp/actor-base/output",
 			ImageName:      os.Getenv("IMAGE_NAME"),
 			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
 		})
