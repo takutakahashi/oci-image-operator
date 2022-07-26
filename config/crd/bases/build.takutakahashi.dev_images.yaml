@@ -52,8 +52,6 @@ spec:
                       properties:
                         policy:
                           type: string
-                        resolvedRevision:
-                          type: string
                         revision:
                           type: string
                       type: object
@@ -90,6 +88,30 @@ spec:
             type: object
           status:
             description: ImageStatus defines the observed state of Image
+            properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    resolvedRevision:
+                      type: string
+                    revision:
+                      type: string
+                    status:
+                      description: Status is the status of the condition. Can be True,
+                        False, Unknown.
+                      type: string
+                    tagPolicy:
+                      type: string
+                    type:
+                      description: 'Type of Condition. ex: Detected, Checked, Uploaded'
+                      type: string
+                  type: object
+                type: array
             type: object
         type: object
     served: true

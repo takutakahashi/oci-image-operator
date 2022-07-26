@@ -9,3 +9,15 @@ if [[ "$OP" = "detect" ]]; then
     sleep 100
   done
 fi
+if [[ "$OP" = "check" ]]; then
+    sleep 30
+    echo "{\"revisions\":[{\"registry\":\"reg\",\"resolved_revision\":\"nooprev$RANDOM\",\"exist\":\"False\"}]}" > /tmp/actor-base/output
+    cat /tmp/actor-base/output
+    exit 0
+fi
+if [[ "$OP" = "upload" ]]; then
+    echo "{\"builds\":[{\"registry\":\"reg\",\"tag\":\"nooprev$RANDOM\",\"succeeded\":\"True\"}]}" > /tmp/actor-base/output
+    cat /tmp/actor-base/output
+    exit 0
+  done
+fi

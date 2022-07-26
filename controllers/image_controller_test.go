@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -10,8 +9,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -31,7 +34,7 @@ var _ = Describe("Image controller", func() {
 	Describe("create", func() {
 		It("detect should success", func() {
 			ctx := context.TODO()
-			image := newImage()
+			image := newImage("test-detect")
 			inClusterImage := &buildv1beta1.Image{}
 			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
 			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
@@ -48,26 +51,97 @@ var _ = Describe("Image controller", func() {
 				if deploy.Spec.Template.Spec.ServiceAccountName != "oci-image-operator-actor-detect" {
 					return errors.New("wrong service account name")
 				}
-				for _, c := range deploy.Spec.Template.Spec.Containers {
-					if c.Name == "main" {
-						if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
-							return fmt.Errorf("diff detected. %s", d)
-						}
+				c := mainContainer(deploy.Spec.Template.Spec.Containers)
+				if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
+					return fmt.Errorf("diff detected. %s", d)
+				}
 
-						contained := []string{}
-						required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
-						for _, e := range c.Env {
-							if slices.Contains(required, e.Name) {
-								contained = append(contained, e.Name)
-							}
-						}
-						sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
-						if !cmp.Equal(contained, required) {
-							return fmt.Errorf("required env is invalid. %s", contained)
-						}
-						break
+				contained := []string{}
+				required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
+				for _, e := range c.Env {
+					if slices.Contains(required, e.Name) {
+						contained = append(contained, e.Name)
 					}
+				}
+				sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
+				if !cmp.Equal(contained, required) {
+					return fmt.Errorf("required env is invalid. %s", contained)
+				}
+				c = baseContainer(deploy.Spec.Template.Spec.Containers)
+				if c.Args[len(c.Args)-1] != "detect" {
+					return fmt.Errorf("args not contain detect")
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+		})
 
+		It("check should success", func() {
+			ctx := context.TODO()
+			image := newImage("test-check")
+			inClusterImage := &buildv1beta1.Image{}
+			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			err = toDetected(image, "master", "test12345")
+			Expect(err).To(Succeed())
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
+					return err
+				}
+				if len(inClusterImage.Status.Conditions) == 0 {
+					logrus.Info(image.Status.Conditions)
+					return fmt.Errorf("conditions are not found")
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(func() error {
+				job := batchv1.Job{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-dd2a454", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
+				}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
+				}
+				c := mainContainer(job.Spec.Template.Spec.Containers)
+				if c.Command[len(c.Command)-1] != "check" {
+					return fmt.Errorf("args not contain check")
+				}
+
+				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
+					return fmt.Errorf("env is not match. env: %v", e)
+				}
+
+				c = baseContainer(job.Spec.Template.Spec.Containers)
+				if c.Args[len(c.Args)-1] != "check" {
+					return fmt.Errorf("args not contain check")
+				}
+
+				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
+					return fmt.Errorf("env is not match. env: %v", e)
+				}
+				return nil
+			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
+		})
+		It("upload should success", func() {
+			ctx := context.TODO()
+			image := newImage("test-upload")
+			inClusterImage := &buildv1beta1.Image{}
+			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			err = toChecked(image, "master", "test12345")
+			Expect(err).To(Succeed())
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
+					return err
+				}
+				if len(inClusterImage.Status.Conditions) == 0 {
+					logrus.Info(image.Status.Conditions)
+					return fmt.Errorf("conditions are not found")
+				}
+				job := batchv1.Job{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-upload-upload-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -76,10 +150,10 @@ var _ = Describe("Image controller", func() {
 	//! [test]
 })
 
-func newImage() *buildv1beta1.Image {
+func newImage(name string) *buildv1beta1.Image {
 	return &buildv1beta1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
+			Name:      name,
 			Namespace: "default",
 		},
 		Spec: buildv1beta1.ImageSpec{
@@ -104,6 +178,71 @@ func newImage() *buildv1beta1.Image {
 			},
 		},
 	}
+}
+
+func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) error {
+	t := metav1.Now()
+	image.Status = buildv1beta1.ImageStatus{
+		Conditions: []buildv1beta1.ImageCondition{
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeDetected,
+				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Type:               buildv1beta1.ImageConditionTypeDetected,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Revision:           "master2",
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+		},
+	}
+	return k8sClient.Status().Update(context.TODO(), image, &client.UpdateOptions{})
+}
+func toChecked(image *buildv1beta1.Image, revision, resolvedRevision string) error {
+	t := metav1.Now()
+	image.Status = buildv1beta1.ImageStatus{
+		Conditions: []buildv1beta1.ImageCondition{
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
+				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
+				Revision:           "master2",
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
+				Type:               buildv1beta1.ImageConditionTypeUploaded,
+				Revision:           revision,
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+			{
+				LastTransitionTime: &t,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
+				Type:               buildv1beta1.ImageConditionTypeUploaded,
+				Revision:           "master2",
+				ResolvedRevision:   resolvedRevision,
+				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
+			},
+		},
+	}
+	return k8sClient.Status().Update(context.TODO(), image, &client.UpdateOptions{})
 }
 
 func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
@@ -133,4 +272,30 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 			Upload: tmp,
 		},
 	}
+}
+
+func mainContainer(containers []corev1.Container) corev1.Container {
+	return getContainer(containers, "main")
+}
+
+func baseContainer(containers []corev1.Container) corev1.Container {
+	return getContainer(containers, "actor-base")
+}
+
+func getContainer(containers []corev1.Container, name string) corev1.Container {
+	for _, c := range containers {
+		if c.Name == name {
+			return c
+		}
+	}
+	panic("container not found")
+}
+
+func getEnv(env []corev1.EnvVar, key string) corev1.EnvVar {
+	for _, e := range env {
+		if e.Name == key {
+			return e
+		}
+	}
+	panic("env not found")
 }
