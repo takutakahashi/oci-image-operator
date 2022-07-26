@@ -22,3 +22,5 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           make test
+      - run: |
+          make -C actor/base test
