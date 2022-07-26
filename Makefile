@@ -122,3 +122,7 @@ define go-get-tool
 GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 }
 endef
+
+release: manifests
+	cd config/manager && kustomize edit set image controller=${IMG}
+	kustomize build config/default > ./release.yaml
