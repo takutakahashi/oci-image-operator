@@ -24,8 +24,12 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		workDir := os.Getenv("WORK_DIR")
+		if workDir == "" {
+			workDir = "/tmp/actor-base"
+		}
 		c, err := upload.Init(nil, upload.Opt{
-			WatchPath:      os.Getenv("WORK_DIR"),
+			WatchPath:      workDir,
 			ImageName:      os.Getenv("IMAGE_NAME"),
 			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
 			ImageTarget:    os.Getenv("IMAGE_TARGET"),

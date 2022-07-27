@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
 )
@@ -64,15 +65,19 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		logger.Error(err, "failed to gather required resources")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	after, err := imageutil.Ensure(ctx, r.Client, image, imt, secrets)
+	after, err := imageutil.Ensure(ctx, r.Client, image.DeepCopy(), imt, secrets)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if diff := imageutil.Diff(image, after); diff != "" {
-		if err := r.Update(ctx, after, &client.UpdateOptions{}); err != nil {
+	diff := imageutil.Diff(image, after)
+	if diff != "" {
+		logrus.Infof("diff: %s", diff)
+		if err := r.Status().Update(ctx, after, &client.UpdateOptions{}); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
+	logrus.Info("no diff detected")
+	logrus.Info("reconcilation finished")
 	return ctrl.Result{}, nil
 }
 
