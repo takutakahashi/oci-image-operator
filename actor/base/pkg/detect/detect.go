@@ -127,7 +127,8 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 
 	newImage := image.DeepCopy()
 	newConditions := ensureConditions(newImage.Status.Conditions, detectFile)
-	diff := cmp.Diff(newImage.Status.Conditions, newConditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime"))
+	diff := cmp.Diff(image.Status.Conditions, newConditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime"))
+	logrus.Infof("diff: %s", diff)
 	if diff != "" {
 		newImage.Status.Conditions = newConditions
 		if err := d.c.Status().Update(ctx, newImage); err != nil {
@@ -135,6 +136,7 @@ func (d *Detect) UpdateImage(ctx context.Context) (*buildv1beta1.Image, error) {
 		}
 		logrus.Info("image updated")
 	}
+	logrus.Info("image ensured")
 	return newImage, nil
 }
 
@@ -153,13 +155,19 @@ func parseJSON(r io.Reader) (*DetectFile, error) {
 }
 
 func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
+	logrus.Info("=== before ===")
+	logrus.Info(conditions)
 	for branch, resolvedRevision := range detectFile.Branches {
-		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, nil,
+		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, &buildv1beta1.ImageConditionStatusTrue,
+			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
+		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &buildv1beta1.ImageConditionStatusFalse,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
 	for key, resolvedRevision := range detectFile.Tags {
 		if key == MapKeyLatestTagName || key == MapKeyLatestTagHash {
-			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, nil,
+			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, &buildv1beta1.ImageConditionStatusTrue,
+				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
+			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &buildv1beta1.ImageConditionStatusFalse,
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}
@@ -177,5 +185,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 			conditions[i].ResolvedRevision = c.Revision
 		}
 	}
+	logrus.Info("=== after ===")
+	logrus.Info(conditions)
 	return conditions
 }

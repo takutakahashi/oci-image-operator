@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -18,6 +19,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	appsv1apply "k8s.io/client-go/applyconfigurations/apps/v1"
 	batchv1apply "k8s.io/client-go/applyconfigurations/batch/v1"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -41,8 +43,8 @@ func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, tem
 }
 
 func Diff(before, after *buildv1beta1.Image) string {
-	opts := []cmp.Option{}
-	return cmp.Diff(before, after, opts...)
+	opts := []cmp.Option{cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")}
+	return cmp.Diff(before.Status.Conditions, after.Status.Conditions, opts...)
 }
 
 func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -53,7 +55,22 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	if err := applyDeployment(ctx, c, deploy); err != nil {
 		return nil, err
 	}
+	image.Status.Conditions = ensureDetectConditions(image)
 	return image, nil
+}
+
+func ensureDetectConditions(image *buildv1beta1.Image) []buildv1beta1.ImageCondition {
+	for _, t := range image.Spec.Repository.TagPolicies {
+		image.Status.Conditions = UpdateCondition(
+			image.Status.Conditions,
+			buildv1beta1.ImageConditionTypeDetected,
+			&buildv1beta1.ImageConditionStatusFalse,
+			t.Policy,
+			t.Revision,
+			"",
+		)
+	}
+	return image.Status.Conditions
 }
 
 func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -259,11 +276,23 @@ func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyCo
 	if equality.Semantic.DeepEqual(job, currApplyConfig) {
 		return nil
 	}
-
-	return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
+	if err := c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
 		FieldManager: "image-controller",
 		Force:        pointer.Bool(true),
-	})
+	}); err != nil {
+		existsJob := &batchv1.Job{}
+		if err := c.Get(ctx, types.NamespacedName{Namespace: *job.Namespace, Name: *job.Name}, existsJob); err != nil {
+			return err
+		}
+		if err := c.Delete(ctx, existsJob, &client.DeleteOptions{}); err != nil {
+			return err
+		}
+		return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
+			FieldManager: "image-controller",
+			Force:        pointer.Bool(true),
+		})
+	}
+	return nil
 }
 
 func GetCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {

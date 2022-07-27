@@ -19,5 +19,4 @@ if [[ "$OP" = "upload" ]]; then
     echo "{\"builds\":[{\"registry\":\"reg\",\"tag\":\"nooprev$RANDOM\",\"succeeded\":\"True\"}]}" > /tmp/actor-base/output
     cat /tmp/actor-base/output
     exit 0
-  done
 fi

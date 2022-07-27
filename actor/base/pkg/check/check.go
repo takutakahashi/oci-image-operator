@@ -123,6 +123,7 @@ func (c *Check) Run(ctx context.Context) error {
 	}()
 
 	watcher.Add(c.opt.WatchPath)
+	logrus.Info(c.opt.WatchPath)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -166,20 +167,28 @@ func (c *Check) Execute(ctx context.Context) error {
 }
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
-	logrus.Info(image.Status.Conditions)
 	for _, rev := range output.Revisions {
-		pp.Println(rev)
-		conds := imageutil.UpdateCondition(
-			image.Status.Conditions,
-			buildv1beta1.ImageConditionTypeUploaded,
-			&rev.Exist,
-			buildv1beta1.ImageTagPolicyTypeUnused,
-			"",
-			rev.ResolvedRevision,
-		)
-		image.Status.Conditions = conds
+		for _, c := range imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked) {
+			if c.ResolvedRevision == rev.ResolvedRevision {
+				image.Status.Conditions = imageutil.UpdateCondition(
+					image.Status.Conditions,
+					buildv1beta1.ImageConditionTypeChecked,
+					&buildv1beta1.ImageConditionStatusTrue,
+					c.TagPolicy,
+					c.Revision,
+					rev.ResolvedRevision,
+				)
+				image.Status.Conditions = imageutil.UpdateCondition(
+					image.Status.Conditions,
+					buildv1beta1.ImageConditionTypeUploaded,
+					&rev.Exist,
+					buildv1beta1.ImageTagPolicyTypeUnused,
+					"",
+					rev.ResolvedRevision,
+				)
+			}
+		}
 	}
-	logrus.Info(image.Status.Conditions)
 	return c.c.Status().Update(ctx, image, &client.UpdateOptions{})
 }
 
