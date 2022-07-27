@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 
 	"github.com/google/go-cmp/cmp"
@@ -55,6 +56,16 @@ func Init(cfg *rest.Config, opt DetectOpt) (*Detect, error) {
 		c:   c,
 		opt: opt,
 	}, nil
+}
+
+func (d *Detect) RunHTTP(ctx context.Context) error {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := d.UpdateImage(ctx); err != nil {
+			logrus.Error(err)
+		}
+	})
+	logrus.Info("listen http 8080...")
+	return http.ListenAndServe("0.0.0.0:8080", nil)
 }
 
 func (d *Detect) Run(ctx context.Context) error {

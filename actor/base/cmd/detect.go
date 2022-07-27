@@ -38,9 +38,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		if err := d.Run(context.TODO()); err != nil {
-			logrus.Fatal(err)
-		}
+		logrus.Fatal(d.RunHTTP(context.Background()))
 	},
 }
 
