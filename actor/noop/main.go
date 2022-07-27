@@ -13,10 +13,14 @@ import (
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
 	"github.com/takutakahashi/oci-image-operator/api/v1beta1"
 )
-
+var dir string
 func main() {
 	op := os.Args[1]
 	logrus.Info(op)
+  dir = os.Getenv("WORK_DIR")
+  if dir == "" {
+    dir = "/tmp/actor-base"
+  }
 	seed := rand.Intn(60000)
 	switch op {
 	case "detect":
@@ -38,7 +42,7 @@ func doDetect(seed int) {
 				"latest/hash": fmt.Sprintf("nooptag%d", seed),
 			},
 		}
-		w, err := os.Create("/tmp/actor-base/output")
+		w, err := os.Create(fmt.Sprintf("%s/output", dir))
 		if err != nil {
 			panic(err)
 		}
@@ -51,7 +55,7 @@ func doDetect(seed int) {
 
 func doCheck(seed int) {
 	for {
-		r, err := os.Open("/tmp/actor-base/input")
+		r, err := os.Open(fmt.Sprintf("%s/input", dir))
 		if err != nil {
 			logrus.Error(err)
 			continue
@@ -68,7 +72,7 @@ func doCheck(seed int) {
 		output := &check.CheckOutput{
 			Revisions: input.Revisions,
 		}
-		w, err := os.Create("/tmp/actor-base/output")
+		w, err := os.Create(fmt.Sprintf("%s/output", dir))
 		if err != nil {
 			panic(err)
 		}
@@ -82,7 +86,7 @@ func doCheck(seed int) {
 }
 func doUpload(seed int) {
 	for {
-		r, err := os.Open("/tmp/actor-base/input")
+		r, err := os.Open(fmt.Sprintf("%s/input", dir))
 		if err != nil {
 			logrus.Error(err)
 			continue
@@ -98,7 +102,7 @@ func doUpload(seed int) {
 		output := &upload.Output{
 			Builds: input.Builds,
 		}
-		w, err := os.Create("/tmp/actor-base/output")
+		w, err := os.Create(fmt.Sprintf("%s/output", dir))
 		if err != nil {
 			panic(err)
 		}

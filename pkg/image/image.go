@@ -331,9 +331,48 @@ func SetCondition(conditions []buildv1beta1.ImageCondition, condition buildv1bet
 	return conditions
 }
 
-func UpdateCondition(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, status *buildv1beta1.ImageConditionStatus, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
-	cond := GetConditionBy(conditions, condType, buildv1beta1.ImageCondition{TagPolicy: tagPolicy, Revision: revision})
+func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, resolvedRevision string) []buildv1beta1.ImageCondition {
+	exists := false
 	now := v1.Now()
+	conds := GetCondition(conditions, buildv1beta1.ImageConditionTypeUploaded)
+	for _, cond := range conds {
+		if cond.ResolvedRevision == resolvedRevision {
+			exists = true
+			if cond.Status != status {
+				cond.Status = status
+				cond.LastTransitionTime = &now
+				return SetCondition(conditions, cond)
+			}
+		}
+	}
+	if !exists {
+		conditions = append(conditions, buildv1beta1.ImageCondition{
+			Type:               buildv1beta1.ImageConditionTypeUploaded,
+			Status:             status,
+			TagPolicy:          buildv1beta1.ImageTagPolicyTypeUnused,
+			Revision:           "",
+			ResolvedRevision:   resolvedRevision,
+			LastTransitionTime: &now,
+		})
+	}
+	return conditions
+}
+
+func UpdateCondition(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, status *buildv1beta1.ImageConditionStatus, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
+	now := v1.Now()
+	cond := GetConditionBy(conditions, condType, buildv1beta1.ImageCondition{TagPolicy: tagPolicy, Revision: revision})
+	if cond.LastTransitionTime == nil {
+		if status != nil {
+			cond.Status = *status
+		} else {
+			cond.Status = buildv1beta1.ImageConditionStatusUnknown
+		}
+		cond.TagPolicy = tagPolicy
+		cond.Revision = revision
+		cond.ResolvedRevision = resolvedRevision
+		cond.LastTransitionTime = &now
+		return SetCondition(conditions, cond)
+	}
 	if status == nil {
 		if cond.ResolvedRevision != resolvedRevision {
 			cond.Status = buildv1beta1.ImageConditionStatusTrue

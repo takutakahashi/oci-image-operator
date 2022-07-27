@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -25,8 +26,12 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logrus.Info("detect starting")
+		workDir := os.Getenv("WORK_DIR")
+		if workDir == "" {
+			workDir = "/tmp/actor-base"
+		}
 		d, err := detect.Init(nil, detect.DetectOpt{
-			WatchPath:      "/tmp/actor-base/output",
+			WatchPath:      fmt.Sprintf("%s/output", workDir),
 			ImageName:      os.Getenv("IMAGE_NAME"),
 			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
 		})
