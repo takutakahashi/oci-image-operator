@@ -24,19 +24,19 @@ func main() {
 	if dir == "" {
 		dir = "/tmp/actor-base"
 	}
-	seed := rand.Intn(60000)
 	switch op {
 	case "detect":
-		doDetect(seed)
+		doDetect()
 	case "check":
-		doCheck(seed)
+		doCheck()
 	case "upload":
-		doUpload(seed)
+		doUpload()
 	}
 }
 
-func doDetect(seed int) {
+func doDetect() {
 	for {
+		seed := rand.Intn(60000)
 		f := detect.DetectFile{
 			Branches: map[string]string{
 				"master": fmt.Sprintf("noopbranch%d", seed),
@@ -59,7 +59,7 @@ func doDetect(seed int) {
 	}
 }
 
-func doCheck(seed int) {
+func doCheck() {
 	for {
 		r, err := os.Open(fmt.Sprintf("%s/input", dir))
 		if err != nil {
@@ -90,7 +90,7 @@ func doCheck(seed int) {
 		time.Sleep(10 * time.Second)
 	}
 }
-func doUpload(seed int) {
+func doUpload() {
 	for {
 		r, err := os.Open(fmt.Sprintf("%s/input", dir))
 		if err != nil {
