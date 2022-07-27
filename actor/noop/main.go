@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -13,14 +14,16 @@ import (
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
 	"github.com/takutakahashi/oci-image-operator/api/v1beta1"
 )
+
 var dir string
+
 func main() {
 	op := os.Args[1]
 	logrus.Info(op)
-  dir = os.Getenv("WORK_DIR")
-  if dir == "" {
-    dir = "/tmp/actor-base"
-  }
+	dir = os.Getenv("WORK_DIR")
+	if dir == "" {
+		dir = "/tmp/actor-base"
+	}
 	seed := rand.Intn(60000)
 	switch op {
 	case "detect":
@@ -47,6 +50,9 @@ func doDetect(seed int) {
 			panic(err)
 		}
 		if err := base.ParseJSON(&f, w); err != nil {
+			panic(err)
+		}
+		if _, err := http.Get("http://localhost:8080/"); err != nil {
 			panic(err)
 		}
 		time.Sleep(1 * time.Minute)
