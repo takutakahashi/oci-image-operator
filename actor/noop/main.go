@@ -71,6 +71,7 @@ func doCheck() {
 			logrus.Error(err)
 			continue
 		}
+		r.Close()
 		for i := range input.Revisions {
 			input.Revisions[i].Registry = "testreg"
 			input.Revisions[i].Exist = v1beta1.ImageConditionStatusFalse
@@ -85,6 +86,7 @@ func doCheck() {
 		if err := base.ParseJSON(&output, w); err != nil {
 			panic(err)
 		} else {
+			w.Close()
 			os.Exit(0)
 		}
 		time.Sleep(10 * time.Second)
@@ -102,6 +104,7 @@ func doUpload() {
 			logrus.Error(err)
 			continue
 		}
+		r.Close()
 		for i := range input.Builds {
 			input.Builds[i].Succeeded = v1beta1.ImageConditionStatusTrue
 		}
@@ -115,6 +118,7 @@ func doUpload() {
 		if err := base.ParseJSON(&output, w); err != nil {
 			panic(err)
 		} else {
+			w.Close()
 			os.Exit(0)
 		}
 		time.Sleep(10 * time.Second)

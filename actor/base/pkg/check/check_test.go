@@ -192,6 +192,12 @@ func TestCheck_UpdateImage(t *testing.T) {
 			},
 			wantCondition: []buildv1beta1.ImageCondition{
 				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					ResolvedRevision: "resolved",
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+				},
+				{
 					Type:             buildv1beta1.ImageConditionTypeUploaded,
 					Status:           buildv1beta1.ImageConditionStatusFalse,
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
@@ -267,6 +273,12 @@ func TestCheck_Run(t *testing.T) {
 				out: `{"revisions":[{"registry":"reg","resolved_revision":"run","exist":"False"}]}`,
 			},
 			want: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					ResolvedRevision: "run",
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+				},
 				{
 					Type:             buildv1beta1.ImageConditionTypeUploaded,
 					Status:           buildv1beta1.ImageConditionStatusFalse,

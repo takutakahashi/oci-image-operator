@@ -168,12 +168,16 @@ func (c *Check) Execute(ctx context.Context) error {
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
 	for _, rev := range output.Revisions {
+		image.Status.Conditions = imageutil.UpdateCheckedCondition(
+			image.Status.Conditions,
+			buildv1beta1.ImageConditionStatusTrue,
+			rev.ResolvedRevision,
+		)
 		image.Status.Conditions = imageutil.UpdateUploadedCondition(
 			image.Status.Conditions,
 			rev.Exist,
 			rev.ResolvedRevision,
 		)
-		logrus.Info(image.Status.Conditions)
 	}
 	return c.c.Status().Update(ctx, image, &client.UpdateOptions{})
 }
