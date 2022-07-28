@@ -300,9 +300,9 @@ func TestCheck_Run(t *testing.T) {
 			os.Setenv("WORK_DIR", f)
 			defer os.Setenv("WORK_DIR", "")
 			c := &Check{
-				c:    tt.fields.c,
-				Stop: tt.fields.ch,
-				opt:  tt.fields.opt,
+				c:   tt.fields.c,
+				ch:  tt.fields.ch,
+				opt: tt.fields.opt,
 			}
 			var wg sync.WaitGroup
 			savedObj := buildv1beta1.Image{}
@@ -381,9 +381,9 @@ func TestCheck_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Check{
-				c:    tt.fields.c,
-				Stop: nil,
-				opt:  tt.fields.opt,
+				c:   tt.fields.c,
+				ch:  nil,
+				opt: tt.fields.opt,
 			}
 			f, err := os.MkdirTemp(".", "test")
 			if err != nil {
