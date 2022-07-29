@@ -118,6 +118,3 @@ func (g *Github) getHashes(t string) map[string]string {
 	return ret
 
 }
-
-func (g *Github) PackageAlreadyExists(imageName string) (bool, error) {
-}
