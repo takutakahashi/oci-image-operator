@@ -17,7 +17,7 @@ var detectCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := detect.NewDetect("/tmp/github-actor/detect")
+		d, err := detect.NewDetect("/tmp/actor-base/output")
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/types"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
 )
 
@@ -45,7 +45,7 @@ func (d *Detect) Execute() error {
 	if err != nil {
 		return err
 	}
-	df := types.DetectFile{
+	df := detect.DetectFile{
 		Branches: branches,
 		Tags:     tags,
 	}
