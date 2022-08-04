@@ -118,6 +118,7 @@ func TestGithub_TagHash(t *testing.T) {
 	os.Setenv("GITHUB_ORG", "test")
 	os.Setenv("GITHUB_REPO", "test")
 	os.Setenv("TARGET_TAGS", "v0.1")
+	os.Setenv("GITHUB_API_URL", "https://api.github.com/")
 	type fields struct {
 		opt *GithubOpt
 	}
