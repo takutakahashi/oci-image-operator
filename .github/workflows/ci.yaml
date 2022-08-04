@@ -20,3 +20,7 @@ jobs:
           make test
       - run: |
           make -C actor/base test
+      - run: |
+          make -C actor/github test
+      - run: |
+          make -C actor/registryv2 test
