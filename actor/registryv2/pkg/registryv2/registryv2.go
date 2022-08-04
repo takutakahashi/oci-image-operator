@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/external"
 )
 
 type token struct {
@@ -15,7 +17,6 @@ type token struct {
 }
 
 type Opt struct {
-	URL   string
 	Image string
 	Auth  *Auth
 }
@@ -40,7 +41,12 @@ func Init(c *http.Client, opt Opt) (*Registry, error) {
 }
 
 func (r Registry) TagExists(tag string) (bool, error) {
-	res, err := r.get(fmt.Sprintf("%s/v2/%s/manifests/%s", r.opt.URL, r.opt.Image, tag))
+	hostname, familiarName, err := external.ParseImageName(r.opt.Image)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to parse image")
+	}
+	res, err := r.get(fmt.Sprintf("https://%s/v2/%s/manifests/%s", hostname, familiarName, tag))
+	printbody(res)
 
 	return err == nil && res.StatusCode == http.StatusOK, err
 }
@@ -76,7 +82,11 @@ func (r *Registry) genTokenForGhcr() (string, error) {
 	if r.authToken != "" {
 		return r.authToken, nil
 	}
-	callURL := fmt.Sprintf("%s/token", r.opt.URL)
+	hostname, _, err := external.ParseImageName(r.opt.Image)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse image name")
+	}
+	callURL := fmt.Sprintf("%s/token", fmt.Sprintf("https://%s", hostname))
 	req, err := http.NewRequest("GET", callURL, nil)
 	if err != nil {
 		return "", err

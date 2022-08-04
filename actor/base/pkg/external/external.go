@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/docker/distribution/reference"
+	"github.com/pkg/errors"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/check"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
@@ -57,4 +59,15 @@ func ExportUploadExport(output upload.Output, w io.Writer) error {
 		}
 	}
 	return base.ParseJSON(&output, w)
+}
+
+func ParseImageName(image string) (string, string, error) {
+	named, err := reference.ParseNormalizedNamed(image)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to parse image")
+	}
+	hostname := reference.Domain(named)
+	familiarName := reference.FamiliarName(named)
+	return hostname, familiarName, nil
+
 }

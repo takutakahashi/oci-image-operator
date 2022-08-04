@@ -25,7 +25,6 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		r, err := registryv2.Init(nil, registryv2.Opt{
-			URL:   os.Getenv("REGISTRY_URL"),
 			Image: os.Getenv("REGISTRY_IMAGE_NAME"),
 			Auth: &registryv2.Auth{
 				Username: os.Getenv("REGISTRY_AUTH_USERNAME"),

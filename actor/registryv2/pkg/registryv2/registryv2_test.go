@@ -28,8 +28,7 @@ func TestRegistry_TagExists(t *testing.T) {
 			name: "ok",
 			fields: fields{
 				opt: Opt{
-					URL:   "https://ghcr.io",
-					Image: "takutakahashi/oci-image-operator/manager",
+					Image: "ghcr.io/takutakahashi/oci-image-operator/manager",
 					Auth: &Auth{
 						Username: "takutakahashi",
 						Password: os.Getenv("GITHUB_TOKEN"),
@@ -47,8 +46,7 @@ func TestRegistry_TagExists(t *testing.T) {
 			name: "ng",
 			fields: fields{
 				opt: Opt{
-					URL:   "https://ghcr.io",
-					Image: "takutakahashi/oci-image-operator/manager",
+					Image: "ghcr.io/takutakahashi/oci-image-operator/manager",
 					Auth: &Auth{
 						Username: "takutakahashi",
 						Password: os.Getenv("GITHUB_TOKEN"),
