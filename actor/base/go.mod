@@ -3,7 +3,9 @@ module github.com/takutakahashi/oci-image-operator/actor/base
 go 1.17
 
 require (
+	github.com/docker/distribution v2.8.1+incompatible
 	github.com/google/go-cmp v0.5.6
+	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/takutakahashi/oci-image-operator v0.0.0-20220502054541-c4fc755394c7
@@ -34,7 +36,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.28.0 // indirect
