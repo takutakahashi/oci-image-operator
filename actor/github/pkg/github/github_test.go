@@ -48,6 +48,7 @@ func TestGithub_BranchHash(t *testing.T) {
 	os.Setenv("GITHUB_ORG", "test")
 	os.Setenv("GITHUB_REPO", "test")
 	os.Setenv("TARGET_BRANCHES", "master")
+	os.Setenv("GITHUB_API_URL", "https://api.github.com/")
 	type fields struct {
 		opt *GithubOpt
 	}
