@@ -26,7 +26,7 @@ func LoadCheckInput(r io.Reader) (check.CheckInput, error) {
 func ExportCheckOutput(output check.CheckOutput, w io.Writer) error {
 	if w == nil {
 		var err error
-		w, err = os.Create(base.InWorkDir("input"))
+		w, err = os.Create(base.InWorkDir("output"))
 		if err != nil {
 			return err
 		}

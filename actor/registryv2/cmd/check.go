@@ -5,7 +5,12 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"os"
+
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/takutakahashi/oci-image-operator/actor/registryv2/pkg/check"
+	"github.com/takutakahashi/oci-image-operator/actor/registryv2/pkg/registryv2"
 )
 
 // checkCmd represents the check command
@@ -19,7 +24,22 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		panic("not implemented")
+		r, err := registryv2.Init(nil, registryv2.Opt{
+			URL:   os.Getenv("REGISTRY_URL"),
+			Image: os.Getenv("REGISTRY_IMAGE_NAME"),
+			Auth: &registryv2.Auth{
+				Username: os.Getenv("REGISTRY_AUTH_USERNAME"),
+				Password: os.Getenv("REGISTRY_AUTH_PASSWORD"),
+			},
+		})
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		c, err := check.Init(r)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		c.Run()
 	},
 }
 
