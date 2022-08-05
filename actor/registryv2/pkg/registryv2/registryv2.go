@@ -46,7 +46,6 @@ func (r Registry) TagExists(tag string) (bool, error) {
 		return false, errors.Wrap(err, "failed to parse image")
 	}
 	res, err := r.get(fmt.Sprintf("https://%s/v2/%s/manifests/%s", hostname, familiarName, tag))
-	printbody(res)
 
 	return err == nil && res.StatusCode == http.StatusOK, err
 }
