@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -27,7 +28,11 @@ var _ = Describe("Image controller", func() {
 		ctx := context.TODO()
 		err := k8sClient.DeleteAllOf(ctx, &buildv1beta1.ImageFlowTemplate{}, client.InNamespace("default"))
 		Expect(err).To(Succeed())
+		err = k8sClient.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace("default"))
+		Expect(err).To(Succeed())
 		err = k8sClient.Create(ctx, newImageFlowTemplate("test"), &client.CreateOptions{})
+		Expect(err).To(Succeed())
+		err = k8sClient.Create(ctx, newSecret("test"), &client.CreateOptions{})
 		Expect(err).To(Succeed())
 	})
 	//! [test]
@@ -150,6 +155,19 @@ var _ = Describe("Image controller", func() {
 	//! [test]
 })
 
+func newSecret(name string) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"username": "username",
+			"password": "password",
+		},
+	}
+}
+
 func newImage(name string) *buildv1beta1.Image {
 	return &buildv1beta1.Image{
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,10 +188,10 @@ func newImage(name string) *buildv1beta1.Image {
 			Targets: []buildv1beta1.ImageTarget{
 				{
 					Name: "ghcr.io/takutakahashi/test",
-					//Auth: buildv1beta1.ImageAuth{
-					//	Type:       buildv1beta1.ImageAuthTypeBasic,
-					//	SecretName: "test",
-					//},
+					Auth: buildv1beta1.ImageAuth{
+						Type:       buildv1beta1.ImageAuthTypeBasic,
+						SecretName: "test",
+					},
 				},
 			},
 		},

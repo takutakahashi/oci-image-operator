@@ -85,6 +85,10 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 	if conds == nil {
 		return image, nil
 	}
+	// FIXME: multiple targets
+	if len(image.Spec.Targets) != 1 {
+		return nil, fmt.Errorf("multiple targets is not supported now")
+	}
 	for _, detectedCondition := range conds {
 		checkedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, detectedCondition)
 		if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
@@ -159,13 +163,22 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 
 func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, detectedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(detectedCondition.ResolvedRevision)
+	registryEnv := []*corev1apply.EnvVarApplyConfiguration{
+		corev1apply.EnvVar().WithName("REGISTRY_IMAGE_NAME").WithValue(image.Spec.Targets[0].Name),
+	}
+	if image.Spec.Targets[0].Auth.SecretName != "" {
+		registryEnv = append(registryEnv,
+			corev1apply.EnvVar().WithName("REGISTRY_AUTH_USERNAME").WithValueFrom(corev1apply.EnvVarSource().WithSecretKeyRef(corev1apply.SecretKeySelector().WithName(image.Spec.Targets[0].Auth.SecretName).WithKey("username"))),
+			corev1apply.EnvVar().WithName("REGISTRY_AUTH_PASSWORD").WithValueFrom(corev1apply.EnvVarSource().WithSecretKeyRef(corev1apply.SecretKeySelector().WithName(image.Spec.Targets[0].Auth.SecretName).WithKey("password"))),
+		)
+	}
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithRestartPolicy(corev1.RestartPolicyOnFailure).
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv),
-			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv),
+			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv).WithEnv(registryEnv...),
+			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", detectedCondition.Revision, detectedCondition.TagPolicy)))

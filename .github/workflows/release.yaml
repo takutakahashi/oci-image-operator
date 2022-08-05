@@ -44,6 +44,13 @@ jobs:
           file: actor/base/Dockerfile
           context: .
           tags: ghcr.io/${{ steps.branch_name.outputs.IMAGE_NAME }}/actor-base:${{ steps.branch_name.outputs.SOURCE_TAG }}
+      - name: 'Build:image:actor-registryv2'
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          file: actor/registryv2/Dockerfile
+          context: .
+          tags: ghcr.io/${{ steps.branch_name.outputs.IMAGE_NAME }}/actor-registryv2:${{ steps.branch_name.outputs.SOURCE_TAG }}
       - name: 'Build:image:actor-noop'
         uses: docker/build-push-action@v2
         with:

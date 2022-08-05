@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: takutakahashi/oci-image-operator
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -20,3 +21,7 @@ jobs:
           make test
       - run: |
           make -C actor/base test
+      - run: |
+          make -C actor/github test
+      - run: |
+          make -C actor/registryv2 test
