@@ -42,10 +42,12 @@ func (d *Detect) Run() error {
 	for {
 		time.Sleep(1 * time.Minute)
 		if err := d.Execute(); err != nil {
-			return err
+			logrus.Error(err)
+			continue
 		}
 		if _, err := http.Get("http://localhost:8080/"); err != nil {
-			return err
+			logrus.Error(err)
+			continue
 		}
 	}
 }
