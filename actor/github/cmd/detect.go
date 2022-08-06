@@ -21,7 +21,7 @@ var detectCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := d.Execute(); err != nil {
+		if err := d.Run(); err != nil {
 			log.Fatal(err)
 		}
 	},
