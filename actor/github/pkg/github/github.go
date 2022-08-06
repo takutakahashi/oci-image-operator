@@ -44,8 +44,13 @@ func Init(opt *GithubOpt) (*Github, error) {
 		return nil, err
 	}
 	c.BaseURL = baseURL
-	b := strings.Split(opt.Branches, ",")
-	t := strings.Split(opt.Tags, ",")
+	b, t := []string{}, []string{}
+	if opt.Branches != "" {
+		b = strings.Split(opt.Branches, ",")
+	}
+	if opt.Tags != "" {
+		t = strings.Split(opt.Tags, ",")
+	}
 	return &Github{c: c, opt: opt, branches: b, tags: t, revs: map[string]string{}}, nil
 }
 
@@ -60,6 +65,9 @@ func GenOpt(httpClient *http.Client) (*GithubOpt, error) {
 }
 
 func (g Github) BranchHash(ctx context.Context) (map[string]string, error) {
+	if len(g.branches) == 0 {
+		return map[string]string{}, nil
+	}
 	for _, b := range g.branches {
 		branch, _, err := g.c.Repositories.GetBranch(
 			ctx, g.opt.Org, g.opt.Repo, b, true)
@@ -75,6 +83,9 @@ func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
 		ctx, g.opt.Org, g.opt.Repo, &github.ListOptions{})
 	if err != nil {
 		return nil, err
+	}
+	if len(tags) == 0 {
+		return map[string]string{}, nil
 	}
 	g.setTagHash(detect.MapKeyLatestTagHash, tags[0].GetCommit().GetSHA())
 	g.setTagHash(detect.MapKeyLatestTagName, tags[0].GetName())
