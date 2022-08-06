@@ -237,7 +237,7 @@ func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConf
 func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
 	return (*corev1apply.ContainerApplyConfiguration)(spec.Actor.DeepCopy()).
 		WithName("main").
-		WithCommand("/entrypoint", role).
+		WithArgs(role).
 		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
 }
 
