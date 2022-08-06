@@ -4,9 +4,17 @@ metadata:
   name: imageflowtemplate-sample
 spec:
   detect:
+    requiredEnv:
+    - GITHUB_TOKEN
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:beta"
+      env:
+        - name: GITHUB_TOKEN
+          envFrom:
+            secretKeyRef:
+              name: ghcr-pat
+              key: GITHUB_TOKEN
   check:
     actor:
       name: main
