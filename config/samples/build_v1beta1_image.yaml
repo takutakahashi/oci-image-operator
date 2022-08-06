@@ -5,9 +5,12 @@ metadata:
 spec:
   templateName: imageflowtemplate-sample
   repository:
-    url: https://github.com/takutakahashi/testbed.git
+    url: https://github.com/takutakahashi/build-test.git
     tagPolicies:
     - policy: branchHash
-      revision: master
+      revision: main
   targets:
-  - name: ghcr.io/takutakahashi/testbed
+  - name: ghcr.io/takutakahashi/build-test
+    auth:
+      type: basic
+      secretName: ghcr-pat

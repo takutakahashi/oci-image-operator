@@ -15,6 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM ubuntu
 WORKDIR /
+RUN apt update && apt install -y ca-certificates
 COPY --from=builder /workspace/actor/github/manager .
 USER 65532:65532
 

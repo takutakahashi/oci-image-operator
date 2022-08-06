@@ -8,17 +8,21 @@ spec:
     - GITHUB_TOKEN
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:beta"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:v0.1.12"
       env:
+        - name: GITHUB_ORG
+          value: takutakahashi
+        - name: GITHUB_REPO
+          value: build-test
         - name: GITHUB_TOKEN
-          envFrom:
+          valueFrom:
             secretKeyRef:
               name: ghcr-pat
               key: GITHUB_TOKEN
   check:
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:beta"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-registryv2:beta"
   upload:
     actor:
       name: main
