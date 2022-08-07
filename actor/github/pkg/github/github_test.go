@@ -215,8 +215,9 @@ func TestGithub_Dispatch(t *testing.T) {
 		opt *GithubOpt
 	}
 	type args struct {
-		ctx context.Context
-		ref string
+		ctx  context.Context
+		ref  string
+		wait bool
 	}
 	tests := []struct {
 		name    string
@@ -242,6 +243,7 @@ func TestGithub_Dispatch(t *testing.T) {
 				ctx: context.Background(),
 				ref: "main",
 			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -251,7 +253,7 @@ func TestGithub_Dispatch(t *testing.T) {
 				t.Errorf("Github.Dispatch() error = %v", err)
 				return
 			}
-			if err := g.Dispatch(tt.args.ctx, tt.args.ref); (err != nil) != tt.wantErr {
+			if err := g.Dispatch(tt.args.ctx, tt.args.ref, tt.args.wait); (err != nil) != tt.wantErr {
 				t.Errorf("Github.Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

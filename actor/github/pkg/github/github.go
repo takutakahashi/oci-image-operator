@@ -9,6 +9,7 @@ import (
 
 	"github.com/Netflix/go-env"
 	"github.com/google/go-github/v43/github"
+	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"golang.org/x/oauth2"
 )
@@ -142,8 +143,8 @@ func (g *Github) getHashes(t string) map[string]string {
 
 }
 
-func (g *Github) Dispatch(ctx context.Context, ref string) error {
-	_, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
+func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
+	res, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
 		ctx,
 		g.opt.Org,
 		g.opt.Repo,
@@ -154,6 +155,24 @@ func (g *Github) Dispatch(ctx context.Context, ref string) error {
 	)
 	if err != nil {
 		return err
+	}
+	if res.StatusCode != 204 {
+		return fmt.Errorf("dispatch failed: %s", res.Status)
+	}
+	runs, _, err := g.c.Actions.ListWorkflowRunsByFileName(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		g.opt.WorkflowFileName,
+		&github.ListWorkflowRunsOptions{},
+	)
+	if err != nil {
+		return err
+	}
+	//ourRun := &github.WorkflowRun{}
+	for _, run := range runs.WorkflowRuns {
+		logrus.Info(run.GetStatus())
+		run.GetStatus()
 	}
 	return nil
 }

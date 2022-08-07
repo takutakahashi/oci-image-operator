@@ -62,7 +62,7 @@ func (u Upload) Output(ctx context.Context, input upload.Input) (upload.Output, 
 	// 2. wait for action result
 	// 3. output if actions is succeeded
 	for _, build := range input.Builds {
-		u.gh.Dispatch(ctx, build.Tag)
+		u.gh.Dispatch(ctx, build.Tag, false)
 	}
 	return out, nil
 }
