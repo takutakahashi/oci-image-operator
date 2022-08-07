@@ -10,6 +10,7 @@ import (
 	"github.com/Netflix/go-env"
 	"github.com/google/go-github/v43/github"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
+	"golang.org/x/oauth2"
 )
 
 type GithubOpt struct {
@@ -19,6 +20,7 @@ type GithubOpt struct {
 	Branches            string `env:"TARGET_BRANCHES"`
 	Tags                string `env:"TARGET_TAGS"`
 	PersonalAccessToken string `env:"GITHUB_TOKEN"`
+	WorkflowFileName    string `env:"GITHUB_WORKFLOW_FILENAME,default=build.yaml"`
 	HTTPClient          *http.Client
 }
 
@@ -37,6 +39,16 @@ func Init(opt *GithubOpt) (*Github, error) {
 			return nil, err
 		}
 		opt = newOpt
+	}
+	if opt.HTTPClient == nil {
+		httpcli := &http.Client{}
+		if opt.PersonalAccessToken != "" {
+			ts := oauth2.StaticTokenSource(
+				&oauth2.Token{AccessToken: opt.PersonalAccessToken},
+			)
+			httpcli = oauth2.NewClient(context.Background(), ts)
+		}
+		opt.HTTPClient = httpcli
 	}
 	c := github.NewClient(opt.HTTPClient)
 	baseURL, err := url.Parse(opt.BaseURL)
@@ -128,4 +140,20 @@ func (g *Github) getHashes(t string) map[string]string {
 	}
 	return ret
 
+}
+
+func (g *Github) Dispatch(ctx context.Context, ref string) error {
+	_, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		g.opt.WorkflowFileName,
+		github.CreateWorkflowDispatchEventRequest{
+			Ref: ref,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }

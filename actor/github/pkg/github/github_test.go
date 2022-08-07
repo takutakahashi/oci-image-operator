@@ -209,3 +209,51 @@ func TestGithub_TagHash(t *testing.T) {
 		})
 	}
 }
+
+func TestGithub_Dispatch(t *testing.T) {
+	type fields struct {
+		opt *GithubOpt
+	}
+	type args struct {
+		ctx context.Context
+		ref string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				opt: &GithubOpt{
+					BaseURL:             "https://api.github.com/",
+					Org:                 "takutakahashi",
+					Repo:                "build-test",
+					Branches:            "main",
+					Tags:                "",
+					WorkflowFileName:    "build.yaml",
+					PersonalAccessToken: os.Getenv("GITHUB_TOKEN"),
+					HTTPClient:          nil,
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				ref: "main",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g, err := Init(tt.fields.opt)
+			if err != nil {
+				t.Errorf("Github.Dispatch() error = %v", err)
+				return
+			}
+			if err := g.Dispatch(tt.args.ctx, tt.args.ref); (err != nil) != tt.wantErr {
+				t.Errorf("Github.Dispatch() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
