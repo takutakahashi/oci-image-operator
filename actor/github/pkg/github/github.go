@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Netflix/go-env"
 	"github.com/google/go-github/v43/github"
+	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
+	"golang.org/x/oauth2"
 )
 
 type GithubOpt struct {
@@ -19,6 +22,7 @@ type GithubOpt struct {
 	Branches            string `env:"TARGET_BRANCHES"`
 	Tags                string `env:"TARGET_TAGS"`
 	PersonalAccessToken string `env:"GITHUB_TOKEN"`
+	WorkflowFileName    string `env:"GITHUB_WORKFLOW_FILENAME,default=build.yaml"`
 	HTTPClient          *http.Client
 }
 
@@ -37,6 +41,16 @@ func Init(opt *GithubOpt) (*Github, error) {
 			return nil, err
 		}
 		opt = newOpt
+	}
+	if opt.HTTPClient == nil {
+		httpcli := &http.Client{}
+		if opt.PersonalAccessToken != "" {
+			ts := oauth2.StaticTokenSource(
+				&oauth2.Token{AccessToken: opt.PersonalAccessToken},
+			)
+			httpcli = oauth2.NewClient(context.Background(), ts)
+		}
+		opt.HTTPClient = httpcli
 	}
 	c := github.NewClient(opt.HTTPClient)
 	baseURL, err := url.Parse(opt.BaseURL)
@@ -128,4 +142,106 @@ func (g *Github) getHashes(t string) map[string]string {
 	}
 	return ret
 
+}
+
+func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
+	branch, _, _ := g.c.Repositories.GetBranch(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		"master",
+		false,
+	)
+	if branch == nil {
+		var err error = nil
+		branch, _, err = g.c.Repositories.GetBranch(
+			ctx,
+			g.opt.Org,
+			g.opt.Repo,
+			"main",
+			false,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if branch == nil {
+		return fmt.Errorf("default branch must be main or master")
+	}
+
+	res, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		g.opt.WorkflowFileName,
+		github.CreateWorkflowDispatchEventRequest{
+			Ref: branch.GetName(),
+			Inputs: map[string]interface{}{
+				"revision": ref,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != 204 {
+		return fmt.Errorf("dispatch failed: %s", res.Status)
+	}
+	if wait {
+		return g.waitForComplete(ctx)
+	}
+	return nil
+}
+
+func (g *Github) waitForComplete(ctx context.Context) error {
+	var ourRun *github.WorkflowRun
+	for {
+		time.Sleep(2 * time.Second)
+		runs, _, err := g.c.Actions.ListWorkflowRunsByFileName(
+			ctx,
+			g.opt.Org,
+			g.opt.Repo,
+			g.opt.WorkflowFileName,
+			&github.ListWorkflowRunsOptions{
+				Status: "queued",
+				ListOptions: github.ListOptions{
+					PerPage: 1,
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		if len(runs.WorkflowRuns) == 0 {
+			continue
+		}
+		logrus.Infof("id: %d", runs.WorkflowRuns[0].GetID())
+		logrus.Debug(time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time))
+		if time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time) > 10*time.Second {
+			continue
+		}
+		ourRun = runs.WorkflowRuns[0]
+		break
+	}
+	for {
+		time.Sleep(3 * time.Second)
+		run, _, err := g.c.Actions.GetWorkflowRunByID(
+			ctx,
+			g.opt.Org,
+			g.opt.Repo,
+			ourRun.GetID(),
+		)
+		if err != nil {
+			return err
+		}
+		logrus.Info(run.GetConclusion())
+		switch run.GetConclusion() {
+		case "success":
+			return nil
+		case "failure":
+			return fmt.Errorf("failure")
+		default:
+			continue
+		}
+	}
 }
