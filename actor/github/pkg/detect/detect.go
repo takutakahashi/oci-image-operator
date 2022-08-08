@@ -28,7 +28,7 @@ func NewDetect(outputFilePath string) (*Detect, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Detect{gh: gh, w: f}, nil
+	return &Detect{gh: gh}, nil
 }
 
 func (d *Detect) Run() error {
