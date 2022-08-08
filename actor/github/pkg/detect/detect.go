@@ -6,12 +6,12 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
+	"github.com/takutakahashi/oci-image-operator/pkg/image"
 )
 
 type Detect struct {
@@ -25,13 +25,6 @@ func NewDetect(outputFilePath string) (*Detect, error) {
 		return nil, err
 	}
 	gh, err := github.Init(opt)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Dir(outputFilePath), 0755); err != nil {
-		return nil, err
-	}
-	f, err := os.Create(outputFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +65,15 @@ func (d *Detect) Execute() error {
 	if err != nil {
 		return err
 	}
-	_, err = d.w.Write(buf)
+	if d.w == nil {
+		f, err := os.Create(image.InWorkDir("output"))
+		defer f.Close()
+		if err != nil {
+			return err
+		}
+		_, err = f.Write(buf)
+	} else {
+		_, err = d.w.Write(buf)
+	}
 	return err
-
 }
