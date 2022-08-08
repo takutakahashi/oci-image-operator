@@ -53,7 +53,7 @@ func (u Upload) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return external.ExportUploadExport(output, u.out)
+	return external.ExportUploadOutput(output, u.out)
 }
 
 func (u Upload) Output(ctx context.Context, input upload.Input) (upload.Output, error) {
