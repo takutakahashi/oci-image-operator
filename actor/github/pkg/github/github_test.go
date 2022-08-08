@@ -225,6 +225,7 @@ func TestGithub_Dispatch(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
+		// TODO: Mock
 		{
 			name: "ok",
 			fields: fields{
@@ -240,11 +241,33 @@ func TestGithub_Dispatch(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx: context.Background(),
-				ref: "main",
+				ctx:  context.Background(),
+				ref:  "main",
+				wait: true,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
+		//{
+		//	name: "error",
+		//	fields: fields{
+		//		opt: &GithubOpt{
+		//			BaseURL:             "https://api.github.com/",
+		//			Org:                 "takutakahashi",
+		//			Repo:                "build-test",
+		//			Branches:            "main",
+		//			Tags:                "",
+		//			WorkflowFileName:    "error.yaml",
+		//			PersonalAccessToken: os.Getenv("GITHUB_TOKEN"),
+		//			HTTPClient:          nil,
+		//		},
+		//	},
+		//	args: args{
+		//		ctx:  context.Background(),
+		//		ref:  "main",
+		//		wait: true,
+		//	},
+		//	wantErr: true,
+		//},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
