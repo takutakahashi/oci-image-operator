@@ -57,10 +57,6 @@ var _ = Describe("Image controller", func() {
 					return errors.New("wrong service account name")
 				}
 				c := mainContainer(deploy.Spec.Template.Spec.Containers)
-				if d := cmp.Diff(c.Command, []string{"/entrypoint", "detect"}); d != "" {
-					return fmt.Errorf("diff detected. %s", d)
-				}
-
 				contained := []string{}
 				required := []string{"AUTH_SECRET_NAME", "REPOSITORY", "TEST_ENV"}
 				for _, e := range c.Env {
@@ -108,19 +104,11 @@ var _ = Describe("Image controller", func() {
 					return err
 				}
 				c := mainContainer(job.Spec.Template.Spec.Containers)
-				if c.Command[len(c.Command)-1] != "check" {
-					return fmt.Errorf("args not contain check")
-				}
-
 				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
 					return fmt.Errorf("env is not match. env: %v", e)
 				}
 
 				c = baseContainer(job.Spec.Template.Spec.Containers)
-				if c.Args[len(c.Args)-1] != "check" {
-					return fmt.Errorf("args not contain check")
-				}
-
 				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
 					return fmt.Errorf("env is not match. env: %v", e)
 				}
