@@ -50,7 +50,7 @@ func LoadUploadInput(r io.Reader) (upload.Input, error) {
 	return c, err
 
 }
-func ExportUploadExport(output upload.Output, w io.Writer) error {
+func ExportUploadOutput(output upload.Output, w io.Writer) error {
 	if w == nil {
 		var err error
 		w, err = os.Create(base.InWorkDir("output"))
