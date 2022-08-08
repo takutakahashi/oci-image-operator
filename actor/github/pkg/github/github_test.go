@@ -226,27 +226,27 @@ func TestGithub_Dispatch(t *testing.T) {
 		wantErr bool
 	}{
 		// TODO: Mock
-		{
-			name: "ok",
-			fields: fields{
-				opt: &GithubOpt{
-					BaseURL:             "https://api.github.com/",
-					Org:                 "takutakahashi",
-					Repo:                "build-test",
-					Branches:            "main",
-					Tags:                "",
-					WorkflowFileName:    "build.yaml",
-					PersonalAccessToken: os.Getenv("GITHUB_TOKEN"),
-					HTTPClient:          nil,
-				},
-			},
-			args: args{
-				ctx:  context.Background(),
-				ref:  "main",
-				wait: true,
-			},
-			wantErr: false,
-		},
+		//{
+		//	name: "ok",
+		//	fields: fields{
+		//		opt: &GithubOpt{
+		//			BaseURL:             "https://api.github.com/",
+		//			Org:                 "takutakahashi",
+		//			Repo:                "build-test",
+		//			Branches:            "main",
+		//			Tags:                "",
+		//			WorkflowFileName:    "build.yaml",
+		//			PersonalAccessToken: os.Getenv("GITHUB_TOKEN"),
+		//			HTTPClient:          nil,
+		//		},
+		//	},
+		//	args: args{
+		//		ctx:  context.Background(),
+		//		ref:  "main",
+		//		wait: true,
+		//	},
+		//	wantErr: false,
+		//},
 		//{
 		//	name: "error",
 		//	fields: fields{
