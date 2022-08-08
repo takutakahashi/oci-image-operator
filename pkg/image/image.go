@@ -203,7 +203,7 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "upload").WithEnv(revEnv),
-			actorContainer(&template.Spec.Check, "upload").WithEnv(revEnv),
+			actorContainer(&template.Spec.Upload, "upload").WithEnv(revEnv),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", uploadedCondition.Revision, uploadedCondition.TagPolicy)))

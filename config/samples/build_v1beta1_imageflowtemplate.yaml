@@ -8,7 +8,7 @@ spec:
     - GITHUB_TOKEN
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:v0.1.15"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:v0.1.17"
       env:
         - name: GITHUB_ORG
           value: takutakahashi
@@ -22,8 +22,8 @@ spec:
   check:
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-registryv2:v0.1.15"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-registryv2:v0.1.17"
   upload:
     actor:
       name: main
-      image: "ghcr.io/takutakahashi/oci-image-operator/actor-noop:v0.1.15"
+      image: "ghcr.io/takutakahashi/oci-image-operator/actor-github:v0.1.17"
