@@ -67,13 +67,19 @@ func (d *Detect) Execute() error {
 	}
 	if d.w == nil {
 		f, err := os.Create(image.InWorkDir("output"))
-		defer f.Close()
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 		_, err = f.Write(buf)
+		if err != nil {
+			return err
+		}
 	} else {
 		_, err = d.w.Write(buf)
+		if err != nil {
+			return err
+		}
 	}
-	return err
+	return nil
 }
