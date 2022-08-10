@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -139,12 +140,25 @@ func setLabel(name string, b map[string]string) map[string]string {
 }
 
 func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate) (*appsv1apply.DeploymentApplyConfiguration, error) {
+	tags, branches := []string{}, []string{}
+	for _, policy := range image.Spec.Repository.TagPolicies {
+		switch policy.Policy {
+		case buildv1beta1.ImageTagPolicyTypeBranchHash:
+			branches = append(branches, policy.Revision)
+		case buildv1beta1.ImageTagPolicyTypeTagHash:
+			tags = append(tags, policy.Revision)
+		}
+	}
+	targetEnv := []*corev1apply.EnvVarApplyConfiguration{
+		corev1apply.EnvVar().WithName("TARGET_BRANCHES").WithValue(strings.Join(branches, ",")),
+		corev1apply.EnvVar().WithName("TARGET_TAGS").WithValue(strings.Join(tags, ",")),
+	}
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "detect"),
-			actorContainer(&template.Spec.Detect, "detect"),
+			baseContainer(image.Name, image.Namespace, "detect").WithEnv(targetEnv...),
+			actorContainer(&template.Spec.Detect, "detect").WithEnv(targetEnv...),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
