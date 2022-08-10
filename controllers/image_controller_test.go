@@ -15,7 +15,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
@@ -28,7 +27,7 @@ var _ = Describe("Image controller", func() {
 		ctx := context.TODO()
 		err := k8sClient.DeleteAllOf(ctx, &buildv1beta1.ImageFlowTemplate{}, client.InNamespace("default"))
 		Expect(err).To(Succeed())
-		err = k8sClient.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace("default"))
+		err = k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, client.InNamespace("default"))
 		Expect(err).To(Succeed())
 		err = k8sClient.Create(ctx, newImageFlowTemplate("test"), &client.CreateOptions{})
 		Expect(err).To(Succeed())
@@ -67,6 +66,12 @@ var _ = Describe("Image controller", func() {
 				sort.Slice(contained, func(i, j int) bool { return contained[i] < contained[j] })
 				if !cmp.Equal(contained, required) {
 					return fmt.Errorf("required env is invalid. %s", contained)
+				}
+				if e := getEnv(c.Env, "TARGET_BRANCHES"); e.Value != "main" {
+					return fmt.Errorf("target branches = %v", e.Value)
+				}
+				if e := getEnv(c.Env, "TARGET_TAGS"); e.Value != "latest" {
+					return fmt.Errorf("target branches = %v", e.Value)
 				}
 				c = baseContainer(deploy.Spec.Template.Spec.Containers)
 				if c.Args[len(c.Args)-1] != "detect" {
@@ -143,8 +148,8 @@ var _ = Describe("Image controller", func() {
 	//! [test]
 })
 
-func newSecret(name string) *v1.Secret {
-	return &v1.Secret{
+func newSecret(name string) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -168,8 +173,12 @@ func newImage(name string) *buildv1beta1.Image {
 				URL: "https://github.com/taktuakahashi/testbed.git",
 				TagPolicies: []buildv1beta1.ImageTagPolicy{
 					{
+						Policy:   buildv1beta1.ImageTagPolicyTypeBranchHash,
+						Revision: "main",
+					},
+					{
 						Policy:   buildv1beta1.ImageTagPolicyTypeTagHash,
-						Revision: "master",
+						Revision: "latest",
 					},
 				},
 			},
