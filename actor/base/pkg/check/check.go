@@ -4,12 +4,12 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
-	"gopkg.in/fsnotify.v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -84,59 +84,21 @@ func Init(cfg *rest.Config, opt CheckOpt) (*Check, error) {
 }
 
 func (c *Check) Run(ctx context.Context) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	done := make(chan bool)
-	c.ch = done
-	if err := c.Execute(ctx); err != nil {
-		logrus.Error("error from execute")
-		logrus.Error(err)
-	}
-	go func() {
-		for {
-			select {
-			case e, ok := <-watcher.Events:
-				if !ok {
-					logrus.Info("failed to get event")
-					return
-				}
-				logrus.Info("====== detected file changes =======")
-				logrus.Info(e)
-				if e.Op == fsnotify.Write {
-					if err := c.Execute(ctx); err != nil {
-						logrus.Error("error from execute")
-						logrus.Error(err)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				logrus.Error("error from watcher")
-				logrus.Error(err)
+	for {
+		if err := c.Execute(ctx); err != nil {
+			if err == base.ErrDone {
+				logrus.Info("execution done")
+				break
 			}
+			logrus.Error("error from execute")
+			logrus.Error(err)
 		}
-	}()
-
-	watcher.Add(c.opt.WatchPath)
-	logrus.Info(c.opt.WatchPath)
-	if err != nil {
-		logrus.Fatal(err)
+		logrus.Info("execution continued")
+		time.Sleep(10 * time.Second)
 	}
-	<-done
 	return nil
 }
 
-func (c *Check) Stop() {
-	logrus.Info("Stopping worker")
-	if c.ch != nil {
-		c.ch <- true
-	}
-}
-
-// returns retry (bool) and error
 func (c *Check) Execute(ctx context.Context) error {
 	logrus.Info("start execute")
 	image, err := base.GetImage(ctx, c.c, c.opt.ImageName, c.opt.ImageNamespace)
@@ -153,8 +115,7 @@ func (c *Check) Execute(ctx context.Context) error {
 		if err := c.UpdateImage(ctx, image, output); err != nil {
 			return err
 		}
-		c.Stop()
-		return nil
+		return base.ErrDone
 	}
 	if !base.ActorInputExists() {
 		logrus.Info("start input func")
