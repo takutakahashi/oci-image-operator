@@ -43,24 +43,10 @@ func TestDetect_UpdateImage(t *testing.T) {
 			want: []buildv1beta1.ImageCondition{
 				{
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
-					Type:             buildv1beta1.ImageConditionTypeDetected,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					Revision:         "master",
-					ResolvedRevision: "aaa",
-				},
-				{
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
 					Type:             buildv1beta1.ImageConditionTypeChecked,
 					Status:           buildv1beta1.ImageConditionStatusFalse,
 					Revision:         "master",
 					ResolvedRevision: "aaa",
-				},
-				{
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
-					Type:             buildv1beta1.ImageConditionTypeDetected,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					Revision:         "latest",
-					ResolvedRevision: "000011112222",
 				},
 				{
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
@@ -125,24 +111,10 @@ func TestDetect_Run(t *testing.T) {
 			want: []buildv1beta1.ImageCondition{
 				{
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
-					Type:             buildv1beta1.ImageConditionTypeDetected,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					Revision:         "master",
-					ResolvedRevision: "aaa",
-				},
-				{
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
 					Type:             buildv1beta1.ImageConditionTypeChecked,
 					Status:           buildv1beta1.ImageConditionStatusFalse,
 					Revision:         "master",
 					ResolvedRevision: "aaa",
-				},
-				{
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
-					Type:             buildv1beta1.ImageConditionTypeDetected,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					Revision:         "latest",
-					ResolvedRevision: "000011112222",
 				},
 				{
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
