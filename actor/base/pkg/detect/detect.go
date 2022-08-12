@@ -166,37 +166,22 @@ func parseJSON(r io.Reader) (*DetectFile, error) {
 }
 
 func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
-	logrus.Info("=== before ===")
-	logrus.Info(conditions)
 	for branch, resolvedRevision := range detectFile.Branches {
-		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, &buildv1beta1.ImageConditionStatusTrue,
-			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
+		if resolvedRevision == "" {
+			continue
+
+		}
 		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &buildv1beta1.ImageConditionStatusFalse,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
 	for key, resolvedRevision := range detectFile.Tags {
+		if resolvedRevision == "" {
+			continue
+		}
 		if key == MapKeyLatestTagName || key == MapKeyLatestTagHash {
-			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeDetected, &buildv1beta1.ImageConditionStatusTrue,
-				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 			conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &buildv1beta1.ImageConditionStatusFalse,
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}
-	for i, c := range conditions {
-		switch c.TagPolicy {
-		case buildv1beta1.ImageTagPolicyTypeTagHash:
-			conditions[i].ResolvedRevision = detectFile.Tags[MapKeyLatestTagHash]
-		case buildv1beta1.ImageTagPolicyTypeTagName:
-			conditions[i].ResolvedRevision = detectFile.Tags[MapKeyLatestTagName]
-		case buildv1beta1.ImageTagPolicyTypeBranchHash:
-			conditions[i].ResolvedRevision = detectFile.Branches[c.Revision]
-		case buildv1beta1.ImageTagPolicyTypeBranchName:
-			conditions[i].ResolvedRevision = c.Revision
-		default:
-			conditions[i].ResolvedRevision = c.Revision
-		}
-	}
-	logrus.Info("=== after ===")
-	logrus.Info(conditions)
 	return conditions
 }
