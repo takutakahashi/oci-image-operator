@@ -157,7 +157,7 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "detect").WithEnv(targetEnv...),
+			baseContainer(image.Name, image.Namespace, "detect", template.Spec.BaseImage).WithEnv(targetEnv...),
 			actorContainer(&template.Spec.Detect, "detect").WithEnv(targetEnv...),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
@@ -191,7 +191,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "check").WithEnv(revEnv).WithEnv(registryEnv...),
+			baseContainer(image.Name, image.Namespace, "check", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(registryEnv...),
 			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...),
 		))
 	// add sha256 from revision and tag policy
@@ -216,7 +216,7 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "upload").WithEnv(revEnv),
+			baseContainer(image.Name, image.Namespace, "upload", template.Spec.BaseImage).WithEnv(revEnv),
 			actorContainer(&template.Spec.Upload, "upload").WithEnv(revEnv),
 		))
 	// add sha256 from revision and tag policy
@@ -234,10 +234,13 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 	return job, nil
 }
 
-func baseContainer(name, namespace, role string) *corev1apply.ContainerApplyConfiguration {
+func baseContainer(name, namespace, role, image string) *corev1apply.ContainerApplyConfiguration {
+	if image == "" {
+		image = "ghcr.io/takutakahashi/oci-image-operator/actor-base:beta"
+	}
 	return corev1apply.Container().
 		WithName("actor-base").
-		WithImage("ghcr.io/takutakahashi/oci-image-operator/actor-base:beta").
+		WithImage(image).
 		WithArgs(role).
 		WithImagePullPolicy(corev1.PullAlways).
 		WithEnv(

@@ -30,9 +30,10 @@ var AnnotationImageFlowTemplateDefaultAll string = "build.takutakahashi.dev/defa
 
 // ImageFlowTemplateSpec defines the desired state of ImageFlowTemplate
 type ImageFlowTemplateSpec struct {
-	Detect ImageFlowTemplateSpecTemplate `json:"detect,omitempty"`
-	Check  ImageFlowTemplateSpecTemplate `json:"check,omitempty"`
-	Upload ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
+	BaseImage string                        `json:"baseImage,omitempty"`
+	Detect    ImageFlowTemplateSpecTemplate `json:"detect,omitempty"`
+	Check     ImageFlowTemplateSpecTemplate `json:"check,omitempty"`
+	Upload    ImageFlowTemplateSpecTemplate `json:"upload,omitempty"`
 }
 
 type ContainerApplyConfiguration corev1apply.ContainerApplyConfiguration
