@@ -9,6 +9,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v0.0.8
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
+	github.com/takutakahashi/oci-image-operator v0.0.0-20220502054541-c4fc755394c7
 	github.com/takutakahashi/oci-image-operator/actor/base v0.0.0-00010101000000-000000000000
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
@@ -39,6 +40,9 @@ require (
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/k0kubun/pp v3.0.1+incompatible // indirect
+	github.com/mattn/go-colorable v0.0.9 // indirect
+	github.com/mattn/go-isatty v0.0.3 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -50,7 +54,6 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.0 // indirect
-	github.com/takutakahashi/oci-image-operator v0.0.0-20220502054541-c4fc755394c7 // indirect
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
