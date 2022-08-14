@@ -53,6 +53,7 @@ func TestGetCheckFile(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
+						Revision:         "master",
 					},
 				},
 			},
@@ -84,11 +85,12 @@ func TestCheckInput_Export(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
+						Revision:         "master",
 						Exist:            buildv1beta1.ImageConditionStatusFalse,
 					},
 				},
 			},
-			wantW: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":"False"}]}`,
+			wantW: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","revision":"master","exist":"False"}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -121,7 +123,7 @@ func TestImportOutput(t *testing.T) {
 		{
 			name: "ok",
 			args: args{
-				r: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","exist":"False"}]}`,
+				r: `{"revisions":[{"registry":"reg","resolved_revision":"testrevhash","revision":"master","exist":"False"}]}`,
 			},
 			wantErr: false,
 			want: CheckOutput{
@@ -129,6 +131,7 @@ func TestImportOutput(t *testing.T) {
 					{
 						Registry:         "reg",
 						ResolvedRevision: "testrevhash",
+						Revision:         "master",
 						Exist:            buildv1beta1.ImageConditionStatusFalse,
 					},
 				},
@@ -185,6 +188,7 @@ func TestCheck_UpdateImage(t *testing.T) {
 						{
 							Registry:         "reg",
 							ResolvedRevision: "resolved",
+							Revision:         "master",
 							Exist:            buildv1beta1.ImageConditionStatusFalse,
 						},
 					},
@@ -195,6 +199,7 @@ func TestCheck_UpdateImage(t *testing.T) {
 					Type:             buildv1beta1.ImageConditionTypeChecked,
 					Status:           buildv1beta1.ImageConditionStatusTrue,
 					ResolvedRevision: "resolved",
+					Revision:         "master",
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
 				},
 				{
@@ -202,6 +207,7 @@ func TestCheck_UpdateImage(t *testing.T) {
 					Status:           buildv1beta1.ImageConditionStatusFalse,
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
 					ResolvedRevision: "resolved",
+					Revision:         "master",
 				},
 			},
 		},
@@ -269,20 +275,22 @@ func TestCheck_Run(t *testing.T) {
 				},
 			},
 			fieldsJson: fieldsJson{
-				in:  `{"revisions":[{"registry":"reg","resolved_revision":"run","exist":"False"}]}`,
-				out: `{"revisions":[{"registry":"reg","resolved_revision":"run","exist":"False"}]}`,
+				in:  `{"revisions":[{"registry":"reg","resolved_revision":"run","revision":"master","exist":"False"}]}`,
+				out: `{"revisions":[{"registry":"reg","resolved_revision":"run","revision":"master","exist":"False"}]}`,
 			},
 			want: []buildv1beta1.ImageCondition{
 				{
 					Type:             buildv1beta1.ImageConditionTypeChecked,
 					Status:           buildv1beta1.ImageConditionStatusTrue,
 					ResolvedRevision: "run",
+					Revision:         "master",
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
 				},
 				{
 					Type:             buildv1beta1.ImageConditionTypeUploaded,
 					Status:           buildv1beta1.ImageConditionStatusFalse,
 					ResolvedRevision: "run",
+					Revision:         "master",
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
 				},
 			},
@@ -372,8 +380,8 @@ func TestCheck_Execute(t *testing.T) {
 				},
 			},
 			fieldsJson: fieldsJson{
-				in:  `{"revisions":[{"registry":"reg","resolved_revision":"execute","exist":"False"}]}`,
-				out: `{"revisions":[{"registry":"reg","resolved_revision":"execute","exist":"False"}]}`,
+				in:  `{"revisions":[{"registry":"reg","resolved_revision":"execute","revision":"master","exist":"False"}]}`,
+				out: `{"revisions":[{"registry":"reg","resolved_revision":"execute","revision":"master","exist":"False"}]}`,
 			},
 			want: []buildv1beta1.ImageCondition{},
 		},

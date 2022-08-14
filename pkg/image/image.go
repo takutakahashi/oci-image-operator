@@ -358,13 +358,14 @@ func SetCondition(conditions []buildv1beta1.ImageCondition, condition buildv1bet
 	return conditions
 }
 
-func UpdateCheckedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, resolvedRevision string) []buildv1beta1.ImageCondition {
+func UpdateCheckedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
 	exists := false
 	now := v1.Now()
 	conds := GetCondition(conditions, buildv1beta1.ImageConditionTypeChecked)
 	for _, cond := range conds {
 		if cond.ResolvedRevision == resolvedRevision {
 			exists = true
+			cond.Revision = revision
 			if cond.Status != status {
 				cond.Status = status
 				cond.LastTransitionTime = &now
@@ -377,7 +378,7 @@ func UpdateCheckedCondition(conditions []buildv1beta1.ImageCondition, status bui
 			Type:               buildv1beta1.ImageConditionTypeChecked,
 			Status:             status,
 			TagPolicy:          buildv1beta1.ImageTagPolicyTypeUnused,
-			Revision:           "",
+			Revision:           revision,
 			ResolvedRevision:   resolvedRevision,
 			LastTransitionTime: &now,
 		})
@@ -385,13 +386,14 @@ func UpdateCheckedCondition(conditions []buildv1beta1.ImageCondition, status bui
 	return conditions
 
 }
-func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, resolvedRevision string) []buildv1beta1.ImageCondition {
+func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
 	exists := false
 	now := v1.Now()
 	conds := GetCondition(conditions, buildv1beta1.ImageConditionTypeUploaded)
 	for _, cond := range conds {
 		if cond.ResolvedRevision == resolvedRevision {
 			exists = true
+			cond.Revision = revision
 			if cond.Status != status {
 				cond.Status = status
 				cond.LastTransitionTime = &now
@@ -404,7 +406,7 @@ func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status bu
 			Type:               buildv1beta1.ImageConditionTypeUploaded,
 			Status:             status,
 			TagPolicy:          buildv1beta1.ImageTagPolicyTypeUnused,
-			Revision:           "",
+			Revision:           revision,
 			ResolvedRevision:   resolvedRevision,
 			LastTransitionTime: &now,
 		})

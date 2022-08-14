@@ -26,6 +26,7 @@ type CheckOutput struct {
 type Revision struct {
 	Registry         string                            `json:"registry"`
 	ResolvedRevision string                            `json:"resolved_revision"`
+	Revision         string                            `json:"revision"`
 	Exist            buildv1beta1.ImageConditionStatus `json:"exist"`
 }
 
@@ -169,11 +170,13 @@ func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, outp
 		image.Status.Conditions = imageutil.UpdateCheckedCondition(
 			image.Status.Conditions,
 			buildv1beta1.ImageConditionStatusTrue,
+			rev.Revision,
 			rev.ResolvedRevision,
 		)
 		image.Status.Conditions = imageutil.UpdateUploadedCondition(
 			image.Status.Conditions,
 			rev.Exist,
+			rev.Revision,
 			rev.ResolvedRevision,
 		)
 	}
@@ -183,7 +186,7 @@ func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, outp
 func GetCheckInput(registry string, conds []buildv1beta1.ImageCondition) CheckInput {
 	prs := []Revision{}
 	for _, c := range conds {
-		prs = append(prs, Revision{Registry: registry, ResolvedRevision: c.ResolvedRevision})
+		prs = append(prs, Revision{Registry: registry, ResolvedRevision: c.ResolvedRevision, Revision: c.Revision})
 	}
 	return CheckInput{
 		Revisions: prs,

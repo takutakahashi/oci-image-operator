@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -166,6 +167,7 @@ func parseJSON(r io.Reader) (*DetectFile, error) {
 }
 
 func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
+	pp.Println(conditions)
 	for branch, resolvedRevision := range detectFile.Branches {
 		if resolvedRevision == "" {
 			continue
@@ -183,5 +185,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}
+	pp.Println("----------- zk before zj after ------------")
+	pp.Println(conditions)
 	return conditions
 }
