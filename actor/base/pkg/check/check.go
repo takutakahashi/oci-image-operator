@@ -170,11 +170,13 @@ func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, outp
 		image.Status.Conditions = imageutil.UpdateCheckedCondition(
 			image.Status.Conditions,
 			buildv1beta1.ImageConditionStatusTrue,
+			rev.Revision,
 			rev.ResolvedRevision,
 		)
 		image.Status.Conditions = imageutil.UpdateUploadedCondition(
 			image.Status.Conditions,
 			rev.Exist,
+			rev.Revision,
 			rev.ResolvedRevision,
 		)
 	}
