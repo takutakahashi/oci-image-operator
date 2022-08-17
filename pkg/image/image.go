@@ -259,10 +259,25 @@ func applyDeployment(ctx context.Context, c client.Client, deploy *appsv1apply.D
 		Force:        pointer.Bool(true),
 	})
 }
+func jobRunning(ctx context.Context, c client.Client, job *batchv1apply.JobApplyConfiguration) (bool, error) {
+	existJob := &batchv1.Job{}
+	if err := c.Get(ctx, types.NamespacedName{Name: *job.Name, Namespace: *job.Namespace}, existJob); err != nil && !apierrors.IsNotFound(err) {
+		return false, err
+	} else if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	return existJob.Status.Active > 0, nil
+}
 func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyConfiguration) error {
+	// wait for previous job
+	if running, err := jobRunning(ctx, c, job); err != nil {
+		return errors.Wrap(err, "failed to get Job status")
+	} else if running {
+		return fmt.Errorf("previous job is still running")
+	}
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(job)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to ToUnstructured")
 	}
 	patch := &unstructured.Unstructured{
 		Object: obj,
@@ -270,33 +285,25 @@ func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyCo
 	var current batchv1.Job
 	err = c.Get(ctx, client.ObjectKey{Namespace: *job.Namespace, Name: *job.Name}, &current)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return err
+		return errors.Wrap(err, "failed to Get")
 	}
 
 	currApplyConfig, err := batchv1apply.ExtractJob(&current, "image-controller")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to extractJob")
 	}
 	if equality.Semantic.DeepEqual(job, currApplyConfig) {
 		return nil
 	}
-	if err := c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
+	if current.GetName() != "" {
+		if err := c.Delete(ctx, &current, &client.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return errors.Wrap(err, "failed to Delete")
+		}
+	}
+	return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
 		FieldManager: "image-controller",
 		Force:        pointer.Bool(true),
-	}); err != nil {
-		existsJob := &batchv1.Job{}
-		if err := c.Get(ctx, types.NamespacedName{Namespace: *job.Namespace, Name: *job.Name}, existsJob); err != nil {
-			return err
-		}
-		if err := c.Delete(ctx, existsJob, &client.DeleteOptions{}); err != nil {
-			return err
-		}
-		return c.Patch(ctx, patch, client.Apply, &client.PatchOptions{
-			FieldManager: "image-controller",
-			Force:        pointer.Bool(true),
-		})
-	}
-	return nil
+	})
 }
 
 func GetCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {

@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -62,18 +61,10 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		logger.Error(err, "failed to gather required resources")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if len(image.Status.Conditions) == 0 {
-		_, err := imageutil.EnsureDetect(ctx, r.Client, image.DeepCopy(), imt, secrets)
-		if err != nil {
-			logger.Error(err, "error")
-			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-		} else {
-			return ctrl.Result{}, nil
-		}
-	}
 	after, err := imageutil.Ensure(ctx, r.Client, image.DeepCopy(), imt, secrets)
 	if err != nil {
-		return ctrl.Result{}, err
+		logger.Error(err, "failed to ensure image")
+		return ctrl.Result{Requeue: true}, nil
 	}
 	diff := imageutil.Diff(image, after)
 	if diff != "" {
