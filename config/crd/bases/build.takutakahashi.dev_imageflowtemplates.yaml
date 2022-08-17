@@ -35,6 +35,8 @@ spec:
           spec:
             description: ImageFlowTemplateSpec defines the desired state of ImageFlowTemplate
             properties:
+              baseImage:
+                type: string
               check:
                 properties:
                   actor:

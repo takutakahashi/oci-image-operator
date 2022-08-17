@@ -56,22 +56,7 @@ func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	if err := applyDeployment(ctx, c, deploy); err != nil {
 		return nil, err
 	}
-	image.Status.Conditions = ensureDetectConditions(image)
 	return image, nil
-}
-
-func ensureDetectConditions(image *buildv1beta1.Image) []buildv1beta1.ImageCondition {
-	for _, t := range image.Spec.Repository.TagPolicies {
-		image.Status.Conditions = UpdateCondition(
-			image.Status.Conditions,
-			buildv1beta1.ImageConditionTypeDetected,
-			&buildv1beta1.ImageConditionStatusFalse,
-			t.Policy,
-			t.Revision,
-			"",
-		)
-	}
-	return image.Status.Conditions
 }
 
 func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -81,23 +66,17 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 		3. if below are satisfied, ensure Job.
 			i. detectedCondition is transitioned and transition execute after checkCondition
 	**/
-	logrus.Info(image.Status.Conditions)
-	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
-	if conds == nil {
+	conds := GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
+	if len(conds) == 0 {
 		return image, nil
 	}
 	// FIXME: multiple targets
 	if len(image.Spec.Targets) != 1 {
 		return nil, fmt.Errorf("multiple targets is not supported now")
 	}
-	for _, detectedCondition := range conds {
-		checkedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, detectedCondition)
-		if checkedCondition.LastTransitionTime != nil && detectedCondition.LastTransitionTime.Before(checkedCondition.LastTransitionTime) {
-			logrus.Info("image already checked")
-			continue
-		}
+	for _, checkedCondition := range conds {
 		logrus.Info("checking image")
-		job, err := checkJob(image, template, detectedCondition)
+		job, err := checkJob(image, template, checkedCondition)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build job")
 		}
@@ -109,16 +88,11 @@ func EnsureCheck(ctx context.Context, c client.Client, image *buildv1beta1.Image
 }
 
 func EnsureUpload(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
-	conds := GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked)
+	conds := GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeUploaded, buildv1beta1.ImageConditionStatusFalse)
 	if conds == nil {
 		return image, nil
 	}
-	for _, checkedCondition := range conds {
-		uploadedCondition := GetConditionBy(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, checkedCondition)
-		if uploadedCondition.LastTransitionTime != nil && checkedCondition.LastTransitionTime.Before(uploadedCondition.LastTransitionTime) && uploadedCondition.Status == buildv1beta1.ImageConditionStatusTrue {
-			logrus.Info("image already uploaded")
-			continue
-		}
+	for _, uploadedCondition := range conds {
 		logrus.Info("uploading image")
 		job, err := uploadJob(image, template, uploadedCondition)
 		if err != nil {
@@ -175,8 +149,8 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 	return deploy, nil
 }
 
-func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, detectedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
-	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(detectedCondition.ResolvedRevision)
+func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, checkedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
+	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(checkedCondition.ResolvedRevision)
 	registryEnv := []*corev1apply.EnvVarApplyConfiguration{
 		corev1apply.EnvVar().WithName("REGISTRY_IMAGE_NAME").WithValue(image.Spec.Targets[0].Name),
 	}
@@ -195,7 +169,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...),
 		))
 	// add sha256 from revision and tag policy
-	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", detectedCondition.Revision, detectedCondition.TagPolicy)))
+	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", checkedCondition.Revision, checkedCondition.TagPolicy)))
 	h := hex.EncodeToString(r[:])
 	name := fmt.Sprintf("%s-check-%s", image.Name, h[:7])
 	job := batchv1apply.Job(name, "oci-image-operator-system").
@@ -329,6 +303,16 @@ func GetCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv
 	ret := []buildv1beta1.ImageCondition{}
 	for _, c := range conditions {
 		if c.Type == conditionType {
+			ret = append(ret, c)
+		}
+	}
+	return ret
+}
+
+func GetConditionByStatus(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, status buildv1beta1.ImageConditionStatus) []buildv1beta1.ImageCondition {
+	ret := []buildv1beta1.ImageCondition{}
+	for _, c := range GetCondition(conditions, condType) {
+		if c.Status == status {
 			ret = append(ret, c)
 		}
 	}
