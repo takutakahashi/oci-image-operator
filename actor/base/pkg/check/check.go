@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -53,6 +54,8 @@ func (c CheckInput) Export(w io.Writer) error {
 			return err
 		}
 	}
+	logrus.Info("==== export input file ====")
+	pp.Println(c)
 	return base.ParseJSON(&c, w)
 }
 
