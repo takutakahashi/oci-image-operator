@@ -162,7 +162,7 @@ func (c *Check) Execute(ctx context.Context) error {
 	}
 	if !base.ActorInputExists() {
 		logrus.Info("start input func")
-		conds := imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeDetected)
+		conds := imageutil.GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
 		return GetCheckInput(c.opt.ImageTarget, conds).Export(c.in)
 	}
 	return nil
