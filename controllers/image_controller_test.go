@@ -201,16 +201,16 @@ func toDetected(image *buildv1beta1.Image, revision, resolvedRevision string) er
 		Conditions: []buildv1beta1.ImageCondition{
 			{
 				LastTransitionTime: &t,
-				Status:             buildv1beta1.ImageConditionStatusTrue,
-				Type:               buildv1beta1.ImageConditionTypeDetected,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
 				Revision:           revision,
 				ResolvedRevision:   resolvedRevision,
 				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
 			},
 			{
 				LastTransitionTime: &t,
-				Type:               buildv1beta1.ImageConditionTypeDetected,
-				Status:             buildv1beta1.ImageConditionStatusTrue,
+				Type:               buildv1beta1.ImageConditionTypeChecked,
+				Status:             buildv1beta1.ImageConditionStatusFalse,
 				Revision:           "master2",
 				ResolvedRevision:   resolvedRevision,
 				TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
