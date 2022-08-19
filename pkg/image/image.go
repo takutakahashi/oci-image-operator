@@ -384,6 +384,7 @@ func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status bu
 	now := v1.Now()
 	for i, c := range conditions {
 		if c.Revision == revision &&
+		        c.Type == buildv1beta1.ImageConditionTypeUploaded &&
 			c.ResolvedRevision == resolvedRevision {
 			conditions[i].Status = status
 			conditions[i].LastTransitionTime = &now
