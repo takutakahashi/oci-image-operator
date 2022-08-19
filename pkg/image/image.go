@@ -381,29 +381,13 @@ func UpdateCheckedCondition(conditions []buildv1beta1.ImageCondition, status bui
 
 }
 func UpdateUploadedCondition(conditions []buildv1beta1.ImageCondition, status buildv1beta1.ImageConditionStatus, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
-	exists := false
 	now := v1.Now()
-	conds := GetCondition(conditions, buildv1beta1.ImageConditionTypeUploaded)
-	for _, cond := range conds {
-		if cond.ResolvedRevision == resolvedRevision {
-			exists = true
-			cond.Revision = revision
-			if cond.Status != status {
-				cond.Status = status
-				cond.LastTransitionTime = &now
-				return SetCondition(conditions, cond)
-			}
+	for i, c := range conditions {
+		if c.Revision == revision &&
+			c.ResolvedRevision == resolvedRevision {
+			conditions[i].Status = status
+			conditions[i].LastTransitionTime = &now
 		}
-	}
-	if !exists {
-		conditions = append(conditions, buildv1beta1.ImageCondition{
-			Type:               buildv1beta1.ImageConditionTypeUploaded,
-			Status:             status,
-			TagPolicy:          buildv1beta1.ImageTagPolicyTypeUnused,
-			Revision:           revision,
-			ResolvedRevision:   resolvedRevision,
-			LastTransitionTime: &now,
-		})
 	}
 	return conditions
 }

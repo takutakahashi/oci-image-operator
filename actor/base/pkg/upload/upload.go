@@ -166,10 +166,8 @@ func (u *Upload) Import(output *Output) error {
 
 func (u *Upload) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output *Output) error {
 	for _, build := range output.Builds {
-		image.Status.Conditions = imageutil.UpdateCondition(image.Status.Conditions,
-			buildv1beta1.ImageConditionTypeUploaded,
-			&build.Succeeded,
-			buildv1beta1.ImageTagPolicyTypeUnused,
+		image.Status.Conditions = imageutil.UpdateUploadedCondition(image.Status.Conditions,
+			build.Succeeded,
 			"",
 			build.Tag)
 	}
