@@ -169,6 +169,8 @@ func (c *Check) Execute(ctx context.Context) error {
 }
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {
+	logrus.Info("==== output ====")
+	pp.Println(output)
 	for _, rev := range output.Revisions {
 		image.Status.Conditions = imageutil.UpdateCheckedCondition(
 			image.Status.Conditions,

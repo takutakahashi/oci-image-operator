@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -138,6 +139,8 @@ func getInput(target string, conditions []buildv1beta1.ImageCondition) Input {
 			builds = append(builds, ImageBuild{Tag: cond.ResolvedRevision, Target: target})
 		}
 	}
+	logrus.Info("==== input ====")
+	pp.Println(builds)
 	return Input{Builds: builds}
 }
 
@@ -165,11 +168,11 @@ func (u *Upload) Import(output *Output) error {
 }
 
 func (u *Upload) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output *Output) error {
+	logrus.Info("==== output ====")
+	pp.Println(output)
 	for _, build := range output.Builds {
-		image.Status.Conditions = imageutil.UpdateCondition(image.Status.Conditions,
-			buildv1beta1.ImageConditionTypeUploaded,
-			&build.Succeeded,
-			buildv1beta1.ImageTagPolicyTypeUnused,
+		image.Status.Conditions = imageutil.UpdateUploadedCondition(image.Status.Conditions,
+			build.Succeeded,
 			"",
 			build.Tag)
 	}
