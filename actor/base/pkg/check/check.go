@@ -4,13 +4,13 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
-	"gopkg.in/fsnotify.v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,49 +88,16 @@ func Init(cfg *rest.Config, opt CheckOpt) (*Check, error) {
 }
 
 func (c *Check) Run(ctx context.Context) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	done := make(chan bool)
-	c.ch = done
-	if err := c.Execute(ctx); err != nil {
-		logrus.Error("error from execute")
-		logrus.Error(err)
-	}
-	go func() {
-		for {
-			select {
-			case e, ok := <-watcher.Events:
-				if !ok {
-					logrus.Info("failed to get event")
-					return
-				}
-				logrus.Info("====== detected file changes =======")
-				logrus.Info(e)
-				if e.Op == fsnotify.Write {
-					if err := c.Execute(ctx); err != nil {
-						logrus.Error("error from execute")
-						logrus.Error(err)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				logrus.Error("error from watcher")
-				logrus.Error(err)
-			}
+	for {
+		if err := c.Execute(ctx); err != nil {
+			logrus.Error("error from execute")
+			logrus.Error(err)
+		} else {
+			logrus.Info("finished")
+			return nil
 		}
-	}()
-
-	watcher.Add(c.opt.WatchPath)
-	logrus.Info(c.opt.WatchPath)
-	if err != nil {
-		logrus.Fatal(err)
+		time.Sleep(10 * time.Second)
 	}
-	<-done
-	return nil
 }
 
 func (c *Check) Stop() {
@@ -147,23 +114,19 @@ func (c *Check) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if base.ActorOutputExists() {
-		logrus.Info("start output func")
-		output, err := ImportOutput(c.out)
-		logrus.Info(output)
-		if err != nil {
-			return err
-		}
-		if err := c.UpdateImage(ctx, image, output); err != nil {
-			return err
-		}
-		c.Stop()
-		return nil
+	logrus.Info("start input func")
+	conds := imageutil.GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
+	if err := GetCheckInput(c.opt.ImageTarget, conds).Export(c.in); err != nil {
+		return err
 	}
-	if !base.ActorInputExists() {
-		logrus.Info("start input func")
-		conds := imageutil.GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
-		return GetCheckInput(c.opt.ImageTarget, conds).Export(c.in)
+	logrus.Info("start output func")
+	output, err := ImportOutput(c.out)
+	logrus.Info(output)
+	if err != nil {
+		return err
+	}
+	if err := c.UpdateImage(ctx, image, output); err != nil {
+		return err
 	}
 	return nil
 }
