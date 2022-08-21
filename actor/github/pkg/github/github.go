@@ -93,6 +93,9 @@ func (g Github) BranchHash(ctx context.Context) (map[string]string, error) {
 	return g.getBranchHashes(), nil
 }
 func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
+	if len(g.tags) == 0 {
+		return map[string]string{}, nil
+	}
 	tags, _, err := g.c.Repositories.ListTags(
 		ctx, g.opt.Org, g.opt.Repo, &github.ListOptions{})
 	if err != nil {
@@ -101,12 +104,18 @@ func (g Github) TagHash(ctx context.Context) (map[string]string, error) {
 	if len(tags) == 0 {
 		return map[string]string{}, nil
 	}
-	g.setTagHash(detect.MapKeyLatestTagHash, tags[0].GetCommit().GetSHA())
-	g.setTagHash(detect.MapKeyLatestTagName, tags[0].GetName())
-	for _, b := range g.tags {
+	for _, t := range g.tags {
+		if t == detect.MapKeyLatestTagHash {
+			g.setTagHash(detect.MapKeyLatestTagHash, tags[0].GetCommit().GetSHA())
+			break
+		}
+		if t == detect.MapKeyLatestTagName {
+			g.setTagHash(detect.MapKeyLatestTagName, tags[0].GetName())
+			break
+		}
 		for _, tag := range tags {
-			if tag.GetName() == b {
-				g.setTagHash(b, tag.GetCommit().GetSHA())
+			if tag.GetName() == t {
+				g.setTagHash(t, tag.GetCommit().GetSHA())
 			}
 		}
 	}
