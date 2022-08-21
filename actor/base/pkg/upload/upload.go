@@ -171,10 +171,26 @@ func (u *Upload) UpdateImage(ctx context.Context, image *buildv1beta1.Image, out
 	logrus.Info("==== output ====")
 	pp.Println(output)
 	for _, build := range output.Builds {
-		image.Status.Conditions = imageutil.UpdateUploadedCondition(image.Status.Conditions,
-			build.Succeeded,
-			"",
-			build.Tag)
+		exist := false
+		for _, c := range imageutil.GetCondition(image.Status.Conditions, buildv1beta1.ImageConditionTypeUploaded) {
+			if c.ResolvedRevision == build.Tag {
+				image.Status.Conditions = imageutil.UpdateUploadedCondition(
+					image.Status.Conditions,
+					build.Succeeded,
+					c.Revision,
+					build.Tag,
+				)
+				exist = true
+			}
+		}
+		if !exist {
+			image.Status.Conditions = imageutil.UpdateUploadedCondition(
+				image.Status.Conditions,
+				build.Succeeded,
+				"",
+				build.Tag,
+			)
+		}
 	}
 	return u.c.Status().Update(ctx, image, &client.UpdateOptions{})
 }
