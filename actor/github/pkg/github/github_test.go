@@ -149,13 +149,11 @@ func TestGithub_TagHash(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			want: map[string]string{
-				detect.MapKeyLatestTagHash: "00001111",
-				detect.MapKeyLatestTagName: "v0.1",
-				"v0.1":                     "00001111",
+				"v0.1": "00001111",
 			},
 		},
 		{
-			name: "ok_latest",
+			name: "ok_empty",
 			fields: fields{
 				opt: &GithubOpt{
 					BaseURL:    "https://api.github.com/",
@@ -169,8 +167,43 @@ func TestGithub_TagHash(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 			},
+			want: map[string]string{},
+		},
+		{
+			name: "ok_latest_tag_hash",
+			fields: fields{
+				opt: &GithubOpt{
+					BaseURL:    "https://api.github.com/",
+					Org:        "test",
+					Repo:       "test",
+					Branches:   "",
+					Tags:       "latest/hash",
+					HTTPClient: mockhttp(),
+				},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
 			want: map[string]string{
 				detect.MapKeyLatestTagHash: "00001111",
+			},
+		},
+		{
+			name: "ok_latest_tag_name",
+			fields: fields{
+				opt: &GithubOpt{
+					BaseURL:    "https://api.github.com/",
+					Org:        "test",
+					Repo:       "test",
+					Branches:   "",
+					Tags:       "latest/name",
+					HTTPClient: mockhttp(),
+				},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			want: map[string]string{
 				detect.MapKeyLatestTagName: "v0.1",
 			},
 		},
@@ -185,9 +218,7 @@ func TestGithub_TagHash(t *testing.T) {
 				ctx: context.TODO(),
 			},
 			want: map[string]string{
-				detect.MapKeyLatestTagHash: "00001111",
-				detect.MapKeyLatestTagName: "v0.1",
-				"v0.1":                     "00001111",
+				"v0.1": "00001111",
 			},
 		},
 	}

@@ -28,15 +28,15 @@ func mockhttp() *http.Client {
 			mock.GetReposTagsByOwnerByRepo,
 			[]github.RepositoryTag{
 				{
-					Name: pointer.String("v0.1"),
-					Commit: &github.Commit{
-						SHA: pointer.String("00001111"),
-					},
-				},
-				{
 					Name: pointer.String("v0.2"),
 					Commit: &github.Commit{
 						SHA: pointer.String("00002222"),
+					},
+				},
+				{
+					Name: pointer.String("v0.1"),
+					Commit: &github.Commit{
+						SHA: pointer.String("00001111"),
 					},
 				},
 			},
@@ -50,6 +50,7 @@ func TestDetect_Execute(t *testing.T) {
 		Org:        "test",
 		Repo:       "test",
 		Branches:   "master",
+		Tags:       "latest/hash",
 		HTTPClient: mockhttp(),
 	})
 	if err != nil {
@@ -68,13 +69,13 @@ func TestDetect_Execute(t *testing.T) {
 		wantBuf string
 	}{
 		{
-			name: "ok",
+			name: "ok_branch",
 			fields: fields{
 				gh: gh,
 				w:  &buf,
 			},
 			wantErr: false,
-			wantBuf: `{"branches":{"master":"master123master"},"tags":{"latest/hash":"00001111","latest/name":"v0.1"}}`,
+			wantBuf: `{"branches":{"master":"master123master"},"tags":{"latest/hash":"00002222"}}`,
 		},
 	}
 	for _, tt := range tests {
