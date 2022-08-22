@@ -4,13 +4,13 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	imageutil "github.com/takutakahashi/oci-image-operator/pkg/image"
-	"gopkg.in/fsnotify.v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,48 +61,16 @@ func Init(cfg *rest.Config, opt Opt) (*Upload, error) {
 }
 
 func (c *Upload) Run(ctx context.Context) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	if err := c.Execute(ctx); err != nil {
-		logrus.Error("error from execute")
-		logrus.Error(err)
-	}
-	done := make(chan bool)
-	c.ch = done
-	go func() {
-		for {
-			select {
-			case e, ok := <-watcher.Events:
-				if !ok {
-					logrus.Info("failed to get event")
-					return
-				}
-				logrus.Info("====== detected file changes =======")
-				logrus.Info(e)
-				if e.Op == fsnotify.Write {
-					if err := c.Execute(ctx); err != nil {
-						logrus.Error("error from execute")
-						logrus.Error(err)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				logrus.Error("error from watcher")
-				logrus.Error(err)
-			}
+	for {
+		if err := c.Execute(ctx); err != nil {
+			logrus.Error("error from execute")
+			logrus.Error(err)
+		} else {
+			logrus.Info("finished")
+			return nil
 		}
-	}()
-
-	watcher.Add(c.opt.WatchPath)
-	if err != nil {
-		logrus.Error(err)
+		time.Sleep(30 * time.Second)
 	}
-	<-done
-	return nil
 }
 
 func (u *Upload) Execute(ctx context.Context) error {
@@ -111,23 +79,15 @@ func (u *Upload) Execute(ctx context.Context) error {
 		return err
 	}
 	input := getInput(u.opt.ImageTarget, image.Status.Conditions)
-	if base.ActorOutputExists() {
-		output := &Output{}
-		if err := u.Import(output); err != nil {
-			return err
-		}
-		if err := u.UpdateImage(ctx, image, output); err != nil {
-			return err
-		}
-		u.Stop()
-		return nil
-
+	if err := u.Export(&input); err != nil {
+		return err
 	}
-	if !base.ActorInputExists() {
-		if err := u.Export(&input); err != nil {
-			return err
-		}
-		return nil
+	output := &Output{}
+	if err := u.Import(output); err != nil {
+		return err
+	}
+	if err := u.UpdateImage(ctx, image, output); err != nil {
+		return err
 	}
 	return nil
 }
