@@ -66,8 +66,8 @@ func ParseImageName(image string) (string, string, error) {
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to parse image")
 	}
-	hostname := reference.Domain(named)
-	familiarName := reference.FamiliarName(named)
+	hostname, familiarName := reference.SplitHostname(named)
+
 	return hostname, familiarName, nil
 
 }
