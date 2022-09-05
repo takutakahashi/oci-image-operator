@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
+	"k8s.io/utils/pointer"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -73,8 +74,11 @@ var _ = Describe("Image controller", func() {
 				if e := getEnv(c.Env, "TARGET_TAGS"); e.Value != "latest" {
 					return fmt.Errorf("target branches = %v", e.Value)
 				}
-				if e := getEnv(c.Env, "DEF_IMAGE"); e.Value != "image" {
+				if e := getEnv(c.Env, "DEF_IMAGE_VALUE"); e.Value != "image" {
 					return fmt.Errorf("target branches = %v", e.Value)
+				}
+				if e := getEnv(c.Env, "DEF_IMAGE_CM"); e.ValueFrom.ConfigMapKeyRef.Key != "cm" {
+					return fmt.Errorf("target branches = %v", e.ValueFrom.ConfigMapKeyRef.Key)
 				}
 				c = baseContainer(deploy.Spec.Template.Spec.Containers)
 				if c.Args[len(c.Args)-1] != "detect" {
@@ -120,8 +124,11 @@ var _ = Describe("Image controller", func() {
 				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
 					return fmt.Errorf("env is not match. env: %v", e)
 				}
-				if e := getEnv(c.Env, "DEF_IMAGE"); e.Value != "image" {
+				if e := getEnv(c.Env, "DEF_IMAGE_VALUE"); e.Value != "image" {
 					return fmt.Errorf("target branches = %v", e.Value)
+				}
+				if e := getEnv(c.Env, "DEF_IMAGE_CM"); e.ValueFrom.ConfigMapKeyRef.Key != "cm" {
+					return fmt.Errorf("target branches = %v", e.ValueFrom.ConfigMapKeyRef.Key)
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -199,8 +206,20 @@ func newImage(name string) *buildv1beta1.Image {
 			},
 			Env: []corev1.EnvVar{
 				{
-					Name:  "DEF_IMAGE",
+					Name:  "DEF_IMAGE_VALUE",
 					Value: "image",
+				},
+				{
+					Name: "DEF_IMAGE_CM",
+					ValueFrom: &corev1.EnvVarSource{
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cm",
+							},
+							Key:      "cm",
+							Optional: pointer.Bool(false),
+						},
+					},
 				},
 			},
 		},
