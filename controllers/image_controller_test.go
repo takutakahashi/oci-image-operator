@@ -73,6 +73,9 @@ var _ = Describe("Image controller", func() {
 				if e := getEnv(c.Env, "TARGET_TAGS"); e.Value != "latest" {
 					return fmt.Errorf("target branches = %v", e.Value)
 				}
+				if e := getEnv(c.Env, "DEF_IMAGE"); e.Value != "image" {
+					return fmt.Errorf("target branches = %v", e.Value)
+				}
 				c = baseContainer(deploy.Spec.Template.Spec.Containers)
 				if c.Args[len(c.Args)-1] != "detect" {
 					return fmt.Errorf("args not contain detect")
@@ -116,6 +119,9 @@ var _ = Describe("Image controller", func() {
 				c = baseContainer(job.Spec.Template.Spec.Containers)
 				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
 					return fmt.Errorf("env is not match. env: %v", e)
+				}
+				if e := getEnv(c.Env, "DEF_IMAGE"); e.Value != "image" {
+					return fmt.Errorf("target branches = %v", e.Value)
 				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
@@ -189,6 +195,12 @@ func newImage(name string) *buildv1beta1.Image {
 						Type:       buildv1beta1.ImageAuthTypeBasic,
 						SecretName: "test",
 					},
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "DEF_IMAGE",
+					Value: "image",
 				},
 			},
 		},
