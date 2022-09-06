@@ -131,8 +131,8 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "detect", template.Spec.BaseImage).WithEnv(targetEnv...),
-			actorContainer(&template.Spec.Detect, "detect").WithEnv(targetEnv...),
+			baseContainer(image.Name, image.Namespace, "detect", template.Spec.BaseImage).WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(&template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
@@ -165,8 +165,8 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "check", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(registryEnv...),
-			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...),
+			baseContainer(image.Name, image.Namespace, "check", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", checkedCondition.Revision, checkedCondition.TagPolicy)))
@@ -190,8 +190,8 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "upload", template.Spec.BaseImage).WithEnv(revEnv),
-			actorContainer(&template.Spec.Upload, "upload").WithEnv(revEnv),
+			baseContainer(image.Name, image.Namespace, "upload", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(&template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", uploadedCondition.Revision, uploadedCondition.TagPolicy)))
@@ -304,6 +304,43 @@ func applyJob(ctx context.Context, c client.Client, job *batchv1apply.JobApplyCo
 		FieldManager: "image-controller",
 		Force:        pointer.Bool(true),
 	})
+}
+func toEnvVarConfiguration(env []corev1.EnvVar) []*corev1apply.EnvVarApplyConfiguration {
+	ret := []*corev1apply.EnvVarApplyConfiguration{}
+	for _, e := range env {
+		c := corev1apply.EnvVar().WithName(e.Name).WithValue(e.Value)
+		if e.ValueFrom != nil {
+			if e.ValueFrom.ConfigMapKeyRef != nil {
+				c.WithValueFrom(corev1apply.EnvVarSource().
+					WithConfigMapKeyRef(corev1apply.ConfigMapKeySelector().
+						WithKey(e.ValueFrom.ConfigMapKeyRef.Key).
+						WithName(e.ValueFrom.ConfigMapKeyRef.Name).
+						WithOptional(*e.ValueFrom.ConfigMapKeyRef.Optional)))
+			}
+			if e.ValueFrom.SecretKeyRef != nil {
+				c.WithValueFrom(corev1apply.EnvVarSource().
+					WithSecretKeyRef(corev1apply.SecretKeySelector().
+						WithKey(e.ValueFrom.SecretKeyRef.Key).
+						WithName(e.ValueFrom.SecretKeyRef.Name).
+						WithOptional(*e.ValueFrom.SecretKeyRef.Optional)))
+			}
+			if e.ValueFrom.ResourceFieldRef != nil {
+				c.WithValueFrom(corev1apply.EnvVarSource().
+					WithResourceFieldRef(corev1apply.ResourceFieldSelector().
+						WithContainerName(e.ValueFrom.ResourceFieldRef.ContainerName).
+						WithResource(e.ValueFrom.ResourceFieldRef.Resource).
+						WithDivisor(e.ValueFrom.ResourceFieldRef.Divisor)))
+			}
+			if e.ValueFrom.FieldRef != nil {
+				c.WithValueFrom(corev1apply.EnvVarSource().
+					WithFieldRef(corev1apply.ObjectFieldSelector().
+						WithFieldPath(e.ValueFrom.FieldRef.FieldPath).
+						WithAPIVersion(e.ValueFrom.FieldRef.APIVersion)))
+			}
+		}
+		ret = append(ret, c)
+	}
+	return ret
 }
 
 func GetCondition(conditions []buildv1beta1.ImageCondition, conditionType buildv1beta1.ImageConditionType) []buildv1beta1.ImageCondition {

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,6 +31,7 @@ type ImageSpec struct {
 	TemplateName string          `json:"templateName,omitempty"`
 	Repository   ImageRepository `json:"repository"`
 	Targets      []ImageTarget   `json:"targets"`
+	Env          []corev1.EnvVar `json:"env,omitempty"`
 }
 
 type ImageRepository struct {
