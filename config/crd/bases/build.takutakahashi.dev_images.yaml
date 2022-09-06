@@ -187,7 +187,6 @@ spec:
               templateName:
                 type: string
             required:
-            - env
             - repository
             - targets
             type: object
