@@ -31,7 +31,7 @@ type ImageSpec struct {
 	TemplateName string          `json:"templateName,omitempty"`
 	Repository   ImageRepository `json:"repository"`
 	Targets      []ImageTarget   `json:"targets"`
-	Env          []corev1.EnvVar `json:"env"`
+	Env          []corev1.EnvVar `json:"env,omitempty"`
 }
 
 type ImageRepository struct {
