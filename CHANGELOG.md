@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.1.37](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.36...v0.1.37) - 2022-09-07
+
 ## [v0.1.35](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.34...v0.1.35) - 2022-09-06
 - Env from image by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/37
 
