@@ -31,6 +31,7 @@ import (
 
 const (
 	actorWorkDir = "/tmp/actor-base"
+	ttl          = 86400
 )
 
 func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
@@ -178,7 +179,8 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
 		WithSpec(batchv1apply.JobSpec().
-			WithTemplate(podTemplate))
+			WithTemplate(podTemplate).
+			WithTTLSecondsAfterFinished(ttl))
 	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return job, nil
 }
@@ -203,7 +205,8 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
 		WithSpec(batchv1apply.JobSpec().
-			WithTemplate(podTemplate))
+			WithTemplate(podTemplate).
+			WithTTLSecondsAfterFinished(ttl))
 	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return job, nil
 }
