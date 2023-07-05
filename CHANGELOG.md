@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.1.39](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.38...v0.1.39) - 2023-07-05
+
 ## [v0.1.37](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.36...v0.1.37) - 2023-04-13
 - ttlSecondsAfterFinishedを設定 by @ch1aki in https://github.com/takutakahashi/oci-image-operator/pull/44
 
