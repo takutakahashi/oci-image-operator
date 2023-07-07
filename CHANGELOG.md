@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.1.42](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.41...v0.1.42) - 2023-07-07
+
 ## [v0.1.41](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.40...v0.1.41) - 2023-07-07
 
 ## [v0.1.39](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.38...v0.1.39) - 2023-07-07
