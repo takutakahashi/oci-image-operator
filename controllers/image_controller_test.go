@@ -87,6 +87,32 @@ var _ = Describe("Image controller", func() {
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
+		It("will be deleted deployment when delete image", func() {
+			ctx := context.TODO()
+			image := newImage("for-delete")
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			imageNn := types.NamespacedName{
+				Name:      image.Name,
+				Namespace: image.Namespace,
+			}
+			deployNn := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-detect", image.Name),
+				Namespace: "oci-image-operator-system",
+			}
+			Eventually(ensureToBe("created", k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(ensureToBe("created", k8sClient, deployNn, &appsv1.Deployment{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+
+			// delete
+			err = k8sClient.Delete(ctx, image, &client.DeleteOptions{})
+			Expect(err).To(Succeed())
+			Eventually(ensureToBe("deleted", k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(ensureToBe("deleted", k8sClient, deployNn, &appsv1.Deployment{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+		})
 
 		It("check should success", func() {
 			ctx := context.TODO()
@@ -344,4 +370,23 @@ func getEnv(env []corev1.EnvVar, key string) corev1.EnvVar {
 		}
 	}
 	panic("env not found")
+}
+
+func ensureToBe(op string, c client.Client, objKey types.NamespacedName, obj client.Object) func() error {
+	return func() error {
+		if op == "created" {
+			if err := c.Get(context.Background(), objKey, obj); err != nil {
+				return err
+			}
+			return nil
+
+		}
+		if op == "deleted" {
+			if err := c.Get(context.Background(), objKey, obj); err != nil {
+				return client.IgnoreNotFound(err)
+			}
+			return nil
+		}
+		return nil
+	}
 }
