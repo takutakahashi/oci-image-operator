@@ -137,8 +137,6 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
-		// TODO: add owner reference
-		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
 		WithSpec(appsv1apply.DeploymentSpec().
 			WithReplicas(1).
