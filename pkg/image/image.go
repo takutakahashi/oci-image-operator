@@ -50,6 +50,13 @@ func Diff(before, after *buildv1beta1.Image) string {
 }
 
 func EnsureDetect(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+	if image.DeletionTimestamp != nil {
+		return image, c.Delete(ctx, &appsv1.Deployment{
+			ObjectMeta: v1.ObjectMeta{
+				Name: fmt.Sprintf("%s-detect", image.Name), Namespace: "oci-image-operator-system",
+			},
+		})
+	}
 	deploy, err := detectDeployment(image, template)
 	if err != nil {
 		return nil, err
