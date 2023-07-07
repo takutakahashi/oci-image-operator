@@ -118,9 +118,17 @@ var _ = Describe("Image controller", func() {
 		It("check should success", func() {
 			ctx := context.TODO()
 			image := newImage("test-check")
+			imageNn := types.NamespacedName{
+				Name:      image.Name,
+				Namespace: image.Namespace,
+			}
 			inClusterImage := &buildv1beta1.Image{}
 			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
 			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			Eventually(finalizerSet(k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			err = k8sClient.Get(ctx, imageNn, image)
 			Expect(err).To(Succeed())
 			err = toDetected(image, "master", "test12345")
 			Expect(err).To(Succeed())
@@ -162,10 +170,19 @@ var _ = Describe("Image controller", func() {
 		})
 		It("upload should success", func() {
 			ctx := context.TODO()
-			image := newImage("test-upload")
+			imageBase := newImage("test-upload")
+			imageNn := types.NamespacedName{
+				Name:      imageBase.Name,
+				Namespace: imageBase.Namespace,
+			}
 			inClusterImage := &buildv1beta1.Image{}
-			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
-			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			objKey := types.NamespacedName{Name: imageBase.Name, Namespace: imageBase.Namespace}
+			err := k8sClient.Create(ctx, imageBase, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			Eventually(finalizerSet(k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			image := &buildv1beta1.Image{}
+			err = k8sClient.Get(ctx, imageNn, image)
 			Expect(err).To(Succeed())
 			err = toChecked(image, "master", "test12345")
 			Expect(err).To(Succeed())
@@ -386,5 +403,18 @@ func ensureToBe(op string, c client.Client, objKey types.NamespacedName, obj cli
 			return client.IgnoreNotFound(err)
 		}
 		return fmt.Errorf("invalid op")
+	}
+}
+
+func finalizerSet(c client.Client, objKey types.NamespacedName, obj client.Object) func() error {
+	return func() error {
+		err := c.Get(context.Background(), objKey, obj)
+		if err != nil {
+			return err
+		}
+		if obj.GetFinalizers() == nil || len(obj.GetFinalizers()) == 0 {
+			return fmt.Errorf("failed to set finalizer")
+		}
+		return nil
 	}
 }
