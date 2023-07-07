@@ -112,6 +112,7 @@ var _ = Describe("Image controller", func() {
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(ensureToBe("deleted", k8sClient, deployNn, &appsv1.Deployment{})).
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			// TODO: エラー出てほしい
 		})
 
 		It("check should success", func() {
@@ -374,19 +375,16 @@ func getEnv(env []corev1.EnvVar, key string) corev1.EnvVar {
 
 func ensureToBe(op string, c client.Client, objKey types.NamespacedName, obj client.Object) func() error {
 	return func() error {
+		err := c.Get(context.Background(), objKey, obj)
 		if op == "created" {
-			if err := c.Get(context.Background(), objKey, obj); err != nil {
-				return err
-			}
-			return nil
-
+			return err
 		}
 		if op == "deleted" {
-			if err := c.Get(context.Background(), objKey, obj); err != nil {
-				return client.IgnoreNotFound(err)
+			if err == nil {
+				return fmt.Errorf("obj still exists")
 			}
-			return nil
+			return client.IgnoreNotFound(err)
 		}
-		return nil
+		return fmt.Errorf("invalid op")
 	}
 }
