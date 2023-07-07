@@ -51,6 +51,8 @@ type ImageReconciler struct {
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;get;create;update;patch;delete;watch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=list;get;watch
 
+const IMAGE_FINALIZERS string = "build.takutakahashi.dev/image"
+
 func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	image, imt, secrets, err := r.gatherResources(ctx, req)
@@ -60,6 +62,12 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 		logger.Error(err, "failed to gather required resources")
 		return ctrl.Result{Requeue: true}, nil
+	}
+	logrus.Info(image.GetFinalizers())
+	if image.GetFinalizers() == nil {
+		updated := image.DeepCopy()
+		updated.SetFinalizers([]string{IMAGE_FINALIZERS})
+		return ctrl.Result{}, r.Update(ctx, updated, &client.UpdateOptions{})
 	}
 	after, err := imageutil.Ensure(ctx, r.Client, image.DeepCopy(), imt, secrets)
 	if err != nil {

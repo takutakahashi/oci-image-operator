@@ -87,13 +87,48 @@ var _ = Describe("Image controller", func() {
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
+		It("will be deleted deployment when delete image", func() {
+			ctx := context.TODO()
+			image := newImage("for-delete")
+			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			imageNn := types.NamespacedName{
+				Name:      image.Name,
+				Namespace: image.Namespace,
+			}
+			deployNn := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-detect", image.Name),
+				Namespace: "oci-image-operator-system",
+			}
+			Eventually(ensureToBe("created", k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(ensureToBe("created", k8sClient, deployNn, &appsv1.Deployment{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+
+			// delete
+			err = k8sClient.Delete(ctx, image, &client.DeleteOptions{})
+			Expect(err).To(Succeed())
+			Eventually(ensureToBe("deleted", k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			Eventually(ensureToBe("deleted", k8sClient, deployNn, &appsv1.Deployment{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			// TODO: エラー出てほしい
+		})
 
 		It("check should success", func() {
 			ctx := context.TODO()
 			image := newImage("test-check")
+			imageNn := types.NamespacedName{
+				Name:      image.Name,
+				Namespace: image.Namespace,
+			}
 			inClusterImage := &buildv1beta1.Image{}
 			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
 			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			Eventually(finalizerSet(k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			err = k8sClient.Get(ctx, imageNn, image)
 			Expect(err).To(Succeed())
 			err = toDetected(image, "master", "test12345")
 			Expect(err).To(Succeed())
@@ -135,10 +170,19 @@ var _ = Describe("Image controller", func() {
 		})
 		It("upload should success", func() {
 			ctx := context.TODO()
-			image := newImage("test-upload")
+			imageBase := newImage("test-upload")
+			imageNn := types.NamespacedName{
+				Name:      imageBase.Name,
+				Namespace: imageBase.Namespace,
+			}
 			inClusterImage := &buildv1beta1.Image{}
-			objKey := types.NamespacedName{Name: image.Name, Namespace: image.Namespace}
-			err := k8sClient.Create(ctx, image, &client.CreateOptions{})
+			objKey := types.NamespacedName{Name: imageBase.Name, Namespace: imageBase.Namespace}
+			err := k8sClient.Create(ctx, imageBase, &client.CreateOptions{})
+			Expect(err).To(Succeed())
+			Eventually(finalizerSet(k8sClient, imageNn, &buildv1beta1.Image{})).
+				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+			image := &buildv1beta1.Image{}
+			err = k8sClient.Get(ctx, imageNn, image)
 			Expect(err).To(Succeed())
 			err = toChecked(image, "master", "test12345")
 			Expect(err).To(Succeed())
@@ -344,4 +388,33 @@ func getEnv(env []corev1.EnvVar, key string) corev1.EnvVar {
 		}
 	}
 	panic("env not found")
+}
+
+func ensureToBe(op string, c client.Client, objKey types.NamespacedName, obj client.Object) func() error {
+	return func() error {
+		err := c.Get(context.Background(), objKey, obj)
+		if op == "created" {
+			return err
+		}
+		if op == "deleted" {
+			if err == nil && obj.GetDeletionTimestamp() == nil {
+				return fmt.Errorf("obj still exists: %s/%s: %s", obj.GetNamespace(), obj.GetName(), obj.GetUID())
+			}
+			return client.IgnoreNotFound(err)
+		}
+		return fmt.Errorf("invalid op")
+	}
+}
+
+func finalizerSet(c client.Client, objKey types.NamespacedName, obj client.Object) func() error {
+	return func() error {
+		err := c.Get(context.Background(), objKey, obj)
+		if err != nil {
+			return err
+		}
+		if obj.GetFinalizers() == nil || len(obj.GetFinalizers()) == 0 {
+			return fmt.Errorf("failed to set finalizer")
+		}
+		return nil
+	}
 }
