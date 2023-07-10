@@ -35,6 +35,7 @@ const (
 )
 
 func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+	// TODO: refine status only uploaded
 	if after, err := EnsureDetect(ctx, c, image, template, secrets); err != nil || Diff(image, after) != "" {
 		return after, err
 	}
@@ -112,6 +113,10 @@ func EnsureUpload(ctx context.Context, c client.Client, image *buildv1beta1.Imag
 	}
 	return image, nil
 }
+
+//func ReapStaleConditions(conds []buildv1beta1.ImageCondition) []buildv1beta1.ImageCondition {
+//	GetConditionBy(conds, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageCondition{})
+//}
 
 func setLabel(name string, b map[string]string) map[string]string {
 	if b == nil {
@@ -369,6 +374,20 @@ func GetConditionByStatus(conditions []buildv1beta1.ImageCondition, condType bui
 		}
 	}
 	return ret
+}
+
+func GetConditionByResolvedRevision(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, resolvedRevision string) buildv1beta1.ImageCondition {
+	for _, c := range conditions {
+		if c.Type == condType && c.ResolvedRevision == resolvedRevision {
+			return c
+		}
+	}
+	return buildv1beta1.ImageCondition{
+		LastTransitionTime: nil,
+		Type:               condType,
+		Status:             buildv1beta1.ImageConditionStatusFalse,
+		ResolvedRevision:   resolvedRevision,
+	}
 }
 
 func GetConditionBy(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, baseCondition buildv1beta1.ImageCondition) buildv1beta1.ImageCondition {

@@ -112,7 +112,6 @@ var _ = Describe("Image controller", func() {
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(ensureToBe("deleted", k8sClient, deployNn, &appsv1.Deployment{})).
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
-			// TODO: エラー出てほしい
 		})
 
 		It("check should success", func() {

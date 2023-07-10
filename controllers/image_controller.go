@@ -81,6 +81,7 @@ func (r *ImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 	}
+	//conds := imageutil.ReapStaleConditions(after.Status.Conditions)
 	logrus.Info("no diff detected")
 	logrus.Info("reconcilation finished")
 	return ctrl.Result{}, nil
