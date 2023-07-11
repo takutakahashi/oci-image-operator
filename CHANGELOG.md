@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.43](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.42...v0.1.43) - 2023-07-11
+- Fix bug delete deploy by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/52
+
 ## [v0.1.42](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.41...v0.1.42) - 2023-07-07
 
 ## [v0.1.41](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.40...v0.1.41) - 2023-07-07
