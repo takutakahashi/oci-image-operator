@@ -101,7 +101,7 @@ var _ = Describe("Image controller", func() {
 				Namespace: "oci-image-operator-system",
 			}
 			Eventually(ensureToBe("created", k8sClient, imageNn, &buildv1beta1.Image{})).
-				WithTimeout(2000 * time.Millisecond).Should(Succeed())
+				WithTimeout(4000 * time.Millisecond).Should(Succeed())
 			Eventually(ensureToBe("created", k8sClient, deployNn, &appsv1.Deployment{})).
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
 

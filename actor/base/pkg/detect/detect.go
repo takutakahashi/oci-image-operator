@@ -173,7 +173,14 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 			continue
 
 		}
-		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &buildv1beta1.ImageConditionStatusFalse,
+		conds := imageutil.GetConditionByStatus(conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusTrue)
+		checked := buildv1beta1.ImageConditionStatusFalse
+		for _, cond := range conds {
+			if cond.ResolvedRevision == resolvedRevision {
+				checked = cond.Status
+			}
+		}
+		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &checked,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
 	for key, resolvedRevision := range detectFile.Tags {
@@ -185,7 +192,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 				buildv1beta1.ImageTagPolicyTypeTagHash, "latest", resolvedRevision)
 		}
 	}
-	pp.Println("----------- zk before zj after ------------")
+	pp.Println("-----------  before and after ------------")
 	pp.Println(conditions)
 	return conditions
 }
