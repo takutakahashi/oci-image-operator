@@ -397,7 +397,7 @@ func ensureToBe(op string, c client.Client, objKey types.NamespacedName, obj cli
 			return err
 		}
 		if op == "deleted" {
-			if err == nil && obj.GetDeletionTimestamp() == nil {
+			if err == nil {
 				return fmt.Errorf("obj still exists: %s/%s: %s", obj.GetNamespace(), obj.GetName(), obj.GetUID())
 			}
 			return client.IgnoreNotFound(err)
