@@ -145,7 +145,7 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "detect", template.Spec.BaseImage).WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-			actorContainer(&template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(image.Name, image.Namespace, &template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
@@ -177,7 +177,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "check", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-			actorContainer(&template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(image.Name, image.Namespace, &template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", checkedCondition.Revision, checkedCondition.TagPolicy)))
@@ -203,7 +203,7 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
 			baseContainer(image.Name, image.Namespace, "upload", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-			actorContainer(&template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+			actorContainer(image.Name, image.Namespace, &template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
 	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", uploadedCondition.Revision, uploadedCondition.TagPolicy)))
@@ -238,10 +238,14 @@ func baseContainer(name, namespace, role, image string) *corev1apply.ContainerAp
 
 }
 
-func actorContainer(spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
+func actorContainer(name, namespace string, spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
 	return (*corev1apply.ContainerApplyConfiguration)(spec.Actor.DeepCopy()).
 		WithName("main").
 		WithArgs(role).
+		WithEnv(
+			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
+			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
+		).
 		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
 }
 
