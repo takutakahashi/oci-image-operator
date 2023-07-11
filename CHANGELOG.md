@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.44](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.43...v0.1.44) - 2023-07-11
+- fix detect: no change to False on CheckedCondition by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/55
+
 ## [v0.1.43](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.42...v0.1.43) - 2023-07-11
 - Fix bug delete deploy by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/52
 
