@@ -49,14 +49,14 @@ func (u Upload) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	output, err := u.Output(ctx, input)
+	output, err := u.Output(ctx, &input)
 	if err != nil {
 		return err
 	}
 	return external.ExportUploadOutput(output, u.out)
 }
 
-func (u Upload) Output(ctx context.Context, input upload.Input) (upload.Output, error) {
+func (u Upload) Output(ctx context.Context, input *upload.Input) (upload.Output, error) {
 	out := upload.Output{
 		Builds: make([]upload.ImageBuild, len(input.Builds)),
 	}

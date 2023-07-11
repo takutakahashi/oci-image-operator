@@ -212,7 +212,7 @@ func (g *Github) waitForComplete(ctx context.Context) error {
 			g.opt.Repo,
 			g.opt.WorkflowFileName,
 			&github.ListWorkflowRunsOptions{
-				Status: "queued",
+				Status: "in_progress",
 				ListOptions: github.ListOptions{
 					PerPage: 1,
 				},

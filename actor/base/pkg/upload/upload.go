@@ -38,11 +38,12 @@ type Opt struct {
 }
 
 type Upload struct {
-	c   client.Client
-	ch  chan bool
-	in  io.Writer
-	out io.Reader
-	opt Opt
+	c     client.Client
+	ch    chan bool
+	in    io.Writer
+	out   io.Reader
+	opt   Opt
+	image *buildv1beta1.Image
 }
 
 func Init(cfg *rest.Config, opt Opt) (*Upload, error) {
@@ -58,6 +59,18 @@ func Init(cfg *rest.Config, opt Opt) (*Upload, error) {
 		ch:  make(chan bool),
 		opt: opt,
 	}, nil
+}
+
+func (u *Upload) GetImage(ctx context.Context) (*buildv1beta1.Image, error) {
+	if u.image != nil {
+		return u.image, nil
+	}
+	image, err := base.GetImage(ctx, u.c, u.opt.ImageName, u.opt.ImageNamespace)
+	if err != nil {
+		return nil, err
+	}
+	u.image = image
+	return image, nil
 }
 
 func (c *Upload) Run(ctx context.Context) error {
@@ -105,12 +118,25 @@ func (c *Upload) Run(ctx context.Context) error {
 	return nil
 }
 
+func (u *Upload) GetInput(ctx context.Context) (*Input, error) {
+	image, err := u.GetImage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := getInput(u.opt.ImageTarget, image.Status.Conditions)
+	return &out, nil
+}
+
 func (u *Upload) Execute(ctx context.Context) error {
-	image, err := base.GetImage(ctx, u.c, u.opt.ImageName, u.opt.ImageNamespace)
+
+	image, err := u.GetImage(ctx)
 	if err != nil {
 		return err
 	}
-	input := getInput(u.opt.ImageTarget, image.Status.Conditions)
+	input, err := u.GetInput(ctx)
+	if err != nil {
+		return err
+	}
 	if base.ActorOutputExists() {
 		output := &Output{}
 		if err := u.Import(output); err != nil {
@@ -124,7 +150,7 @@ func (u *Upload) Execute(ctx context.Context) error {
 
 	}
 	if !base.ActorInputExists() {
-		if err := u.Export(&input); err != nil {
+		if err := u.Export(input); err != nil {
 			return err
 		}
 		return nil
