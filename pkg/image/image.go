@@ -207,7 +207,6 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "upload", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 			actorContainer(image.Name, image.Namespace, &template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
