@@ -160,7 +160,7 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 					WithName("main").
 					WithImage("localhost:5000/actor-github").
 					WithEnv(
-						corev1apply.EnvVar().WithName("GITHUB_WORKFLOW_FILENAME").WithValue("for_e2e.yaml"),
+						corev1apply.EnvVar().WithName("GITHUB_WORKFLOW_FILENAME").WithValue("build.yaml"),
 						corev1apply.EnvVar().WithName("GITHUB_ORG").WithValue("takutakahashi"),
 						corev1apply.EnvVar().WithName("GITHUB_TOKEN").WithValue(os.Getenv("GITHUB_TOKEN")),
 					),
