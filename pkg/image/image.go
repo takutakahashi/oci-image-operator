@@ -365,6 +365,26 @@ func GetConditionByStatus(conditions []buildv1beta1.ImageCondition, condType bui
 	return ret
 }
 
+func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
+	for i, c := range conditions {
+		if (c.Type == buildv1beta1.ImageConditionTypeChecked || c.Type == buildv1beta1.ImageConditionTypeUploaded) && c.TagPolicy == tagPolicy && c.Revision == revision {
+			conditions[i].Status = buildv1beta1.ImageConditionStatusCanceled
+		}
+	}
+	return conditions
+
+}
+func GetConditionByPolicy(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, tagPolicy buildv1beta1.ImageTagPolicyType, revision string) []buildv1beta1.ImageCondition {
+	ret := []buildv1beta1.ImageCondition{}
+	for _, c := range GetCondition(conditions, condType) {
+		if c.TagPolicy == tagPolicy && c.Revision == revision {
+			ret = append(ret, c)
+		}
+	}
+	return ret
+
+}
+
 func GetConditionByResolvedRevision(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, resolvedRevision string) buildv1beta1.ImageCondition {
 	for _, c := range conditions {
 		if c.Type == condType && c.ResolvedRevision == resolvedRevision {

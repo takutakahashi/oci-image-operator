@@ -82,6 +82,8 @@ func (d *Detect) UpdateImage(ctx context.Context, detectFile *DetectFile) (*buil
 	return newImage, nil
 }
 
+// 1. cancel previous build
+// 2. add new check condition
 func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *DetectFile) []buildv1beta1.ImageCondition {
 	pp.Println(conditions)
 	for branch, resolvedRevision := range detectFile.Branches {
@@ -96,6 +98,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 				checked = cond.Status
 			}
 		}
+		conditions = imageutil.MarkUploadConditionAsCanceled(conditions, buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &checked,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
