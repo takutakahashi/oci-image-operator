@@ -98,7 +98,6 @@ var (
 	ImageConditionTypeDetected ImageConditionType = "detected"
 	ImageConditionTypeChecked  ImageConditionType = "checked"
 	ImageConditionTypeUploaded ImageConditionType = "uploaded"
-	ImageConditionTypeFailed   ImageConditionType = "failed"
 )
 
 type ImageConditionStatus string
@@ -106,6 +105,7 @@ type ImageConditionStatus string
 var (
 	ImageConditionStatusTrue    ImageConditionStatus = "True"
 	ImageConditionStatusFalse   ImageConditionStatus = "False"
+	ImageConditionStatusFailed  ImageConditionStatus = "failed"
 	ImageConditionStatusUnknown ImageConditionStatus = "Unknown"
 )
 

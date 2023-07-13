@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
 	"github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -38,8 +39,11 @@ func (u Upload) Output(ctx context.Context, input *upload.Input) (upload.Output,
 	for _, build := range input.Builds {
 		wg.Add(1)
 		go func(b upload.ImageBuild) {
-			if err := u.gh.Dispatch(ctx, b.Tag, true); err != nil {
-				b.Succeeded = v1beta1.ImageConditionStatusFalse
+			err := retry.Do(func() error {
+				return u.gh.Dispatch(ctx, b.Tag, true)
+			}, retry.Delay(1*time.Minute), retry.Attempts(3))
+			if err != nil {
+				b.Succeeded = v1beta1.ImageConditionStatusFailed
 			} else {
 				b.Succeeded = v1beta1.ImageConditionStatusTrue
 			}

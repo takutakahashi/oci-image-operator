@@ -34,8 +34,8 @@ func TestGetCheckFile(t *testing.T) {
 				conds: []buildv1beta1.ImageCondition{
 					{
 						LastTransitionTime: &now,
-						Type:               buildv1beta1.ImageConditionTypeDetected,
-						Status:             buildv1beta1.ImageConditionStatusTrue,
+						Type:               buildv1beta1.ImageConditionTypeChecked,
+						Status:             buildv1beta1.ImageConditionStatusFalse,
 						TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
 						Revision:           "master",
 						ResolvedRevision:   "testrevhash",
