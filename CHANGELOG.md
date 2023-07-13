@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.46](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.45...v0.1.46) - 2023-07-13
+- Retry upload when failed and set status failed retry count exceeded by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/60
+
 ## [v0.1.45](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.44...v0.1.45) - 2023-07-13
 - rm base container and add e2e by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/58
 
