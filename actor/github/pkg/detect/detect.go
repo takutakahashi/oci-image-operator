@@ -2,7 +2,6 @@ package detect
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -12,7 +11,6 @@ import (
 
 type Detect struct {
 	gh   *github.Github
-	w    io.Writer
 	base *detect.Detect
 }
 
@@ -37,23 +35,30 @@ func (d *Detect) Run() error {
 		}
 	}
 }
-
-func (d *Detect) Execute() error {
-	ctx := context.TODO()
+func (d *Detect) Output(ctx context.Context) (*detect.DetectFile, error) {
 	branches, err := d.gh.BranchHash(ctx)
 	if err != nil {
 		logrus.Error("error while getting branches")
-		return err
+		return nil, err
 	}
 	tags, err := d.gh.TagHash(ctx)
 	if err != nil {
 		logrus.Error("error while getting tags")
-		return err
+		return nil, err
 	}
-	df := detect.DetectFile{
+	df := &detect.DetectFile{
 		Branches: branches,
 		Tags:     tags,
 	}
-	_, err = d.base.UpdateImage(ctx, &df)
+	return df, nil
+
+}
+func (d *Detect) Execute() error {
+	ctx := context.TODO()
+	df, err := d.Output(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = d.base.UpdateImage(ctx, df)
 	return err
 }
