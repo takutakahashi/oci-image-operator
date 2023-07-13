@@ -12,12 +12,10 @@ import (
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/base"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/internal/testutil"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestGetCheckFile(t *testing.T) {
-	now := v1.Now()
 	type args struct {
 		registry string
 		conds    []buildv1beta1.ImageCondition
@@ -31,16 +29,7 @@ func TestGetCheckFile(t *testing.T) {
 			name: "ok",
 			args: args{
 				registry: "reg",
-				conds: []buildv1beta1.ImageCondition{
-					{
-						LastTransitionTime: &now,
-						Type:               buildv1beta1.ImageConditionTypeDetected,
-						Status:             buildv1beta1.ImageConditionStatusTrue,
-						TagPolicy:          buildv1beta1.ImageTagPolicyTypeBranchHash,
-						Revision:           "master",
-						ResolvedRevision:   "testrevhash",
-					},
-				},
+				conds:    []buildv1beta1.ImageCondition{},
 			},
 			want: CheckInput{
 				Revisions: []Revision{
