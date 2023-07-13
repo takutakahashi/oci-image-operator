@@ -2,24 +2,21 @@ package detect
 
 import (
 	"context"
-	"encoding/json"
 	"io"
-	"net/http"
-	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
-	"github.com/takutakahashi/oci-image-operator/pkg/image"
 )
 
 type Detect struct {
-	gh *github.Github
-	w  io.Writer
+	gh   *github.Github
+	w    io.Writer
+	base *detect.Detect
 }
 
-func NewDetect(outputFilePath string) (*Detect, error) {
+func NewDetect(base *detect.Detect) (*Detect, error) {
 	opt, err := github.GenOpt(nil)
 	if err != nil {
 		return nil, err
@@ -28,17 +25,13 @@ func NewDetect(outputFilePath string) (*Detect, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Detect{gh: gh}, nil
+	return &Detect{gh: gh, base: base}, nil
 }
 
 func (d *Detect) Run() error {
 	for {
 		time.Sleep(1 * time.Minute)
 		if err := d.Execute(); err != nil {
-			logrus.Error(err)
-			continue
-		}
-		if _, err := http.Get("http://localhost:8080/"); err != nil {
 			logrus.Error(err)
 			continue
 		}
@@ -61,25 +54,6 @@ func (d *Detect) Execute() error {
 		Branches: branches,
 		Tags:     tags,
 	}
-	buf, err := json.Marshal(&df)
-	if err != nil {
-		return err
-	}
-	if d.w == nil {
-		f, err := os.Create(image.InWorkDir("output"))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = f.Write(buf)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err = d.w.Write(buf)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err = d.base.UpdateImage(ctx, &df)
+	return err
 }

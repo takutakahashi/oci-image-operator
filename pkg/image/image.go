@@ -149,7 +149,6 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "detect", template.Spec.BaseImage).WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 			actorContainer(image.Name, image.Namespace, &template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
