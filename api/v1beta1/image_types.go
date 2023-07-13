@@ -95,7 +95,6 @@ type ImageCondition struct {
 type ImageConditionType string
 
 var (
-	ImageConditionTypeDetected ImageConditionType = "detected"
 	ImageConditionTypeChecked  ImageConditionType = "checked"
 	ImageConditionTypeUploaded ImageConditionType = "uploaded"
 	ImageConditionTypeFailed   ImageConditionType = "failed"
