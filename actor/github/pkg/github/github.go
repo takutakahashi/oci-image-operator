@@ -212,7 +212,7 @@ func (g *Github) waitForComplete(ctx context.Context) error {
 			g.opt.Repo,
 			g.opt.WorkflowFileName,
 			&github.ListWorkflowRunsOptions{
-				Status: "queued",
+				Status: "in_progress",
 				ListOptions: github.ListOptions{
 					PerPage: 1,
 				},
@@ -226,10 +226,12 @@ func (g *Github) waitForComplete(ctx context.Context) error {
 		}
 		logrus.Infof("id: %d", runs.WorkflowRuns[0].GetID())
 		logrus.Debug(time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time))
-		if time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time) > 10*time.Second {
+		if time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time) > 1*time.Minute {
+			logrus.Info("no runs catched")
 			continue
 		}
 		ourRun = runs.WorkflowRuns[0]
+		logrus.Infof("find run: %v", ourRun)
 		break
 	}
 	for {

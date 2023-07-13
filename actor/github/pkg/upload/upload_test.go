@@ -65,7 +65,7 @@ func TestUpload_Output(t *testing.T) {
 			u := Upload{
 				gh: g,
 			}
-			got, err := u.Output(tt.args.ctx, tt.args.input)
+			got, err := u.Output(tt.args.ctx, &tt.args.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Upload.Output() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"log"
+	"os"
 
 	"github.com/spf13/cobra"
+	basedetect "github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/detect"
 )
 
@@ -16,7 +18,14 @@ var detectCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := detect.NewDetect("/tmp/actor-base/output")
+		base, err := basedetect.Init(nil, basedetect.DetectOpt{
+			ImageName:      os.Getenv("IMAGE_NAME"),
+			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		d, err := detect.NewDetect(base)
 		if err != nil {
 			log.Fatal(err)
 		}

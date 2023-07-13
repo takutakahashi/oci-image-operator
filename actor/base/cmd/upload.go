@@ -4,12 +4,10 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"context"
 	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
 )
 
 // uploadCmd represents the upload command
@@ -23,22 +21,8 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		workDir := os.Getenv("WORK_DIR")
-		if workDir == "" {
-			workDir = "/tmp/actor-base"
-		}
-		c, err := upload.Init(nil, upload.Opt{
-			WatchPath:      workDir,
-			ImageName:      os.Getenv("IMAGE_NAME"),
-			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
-			ImageTarget:    os.Getenv("IMAGE_TARGET"),
-		})
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		if err := c.Run(context.TODO()); err != nil {
-			logrus.Fatal(err)
-		}
+		logrus.Info("deprecated")
+		os.Exit(0)
 	},
 }
 

@@ -80,10 +80,6 @@ var _ = Describe("Image controller", func() {
 				if e := getEnv(c.Env, "DEF_IMAGE_CM"); e.ValueFrom.ConfigMapKeyRef.Key != "cm" {
 					return fmt.Errorf("target branches = %v", e.ValueFrom.ConfigMapKeyRef.Key)
 				}
-				c = baseContainer(deploy.Spec.Template.Spec.Containers)
-				if c.Args[len(c.Args)-1] != "detect" {
-					return fmt.Errorf("args not contain detect")
-				}
 				return nil
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 		})
@@ -112,7 +108,6 @@ var _ = Describe("Image controller", func() {
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(ensureToBe("deleted", k8sClient, deployNn, &appsv1.Deployment{})).
 				WithTimeout(2000 * time.Millisecond).Should(Succeed())
-			// TODO: エラー出てほしい
 		})
 
 		It("check should success", func() {
@@ -155,10 +150,6 @@ var _ = Describe("Image controller", func() {
 					return fmt.Errorf("env is not match. env: %v", e)
 				}
 
-				c = baseContainer(job.Spec.Template.Spec.Containers)
-				if e := getEnv(c.Env, "RESOLVED_REVISION"); e.Value != "test12345" {
-					return fmt.Errorf("env is not match. env: %v", e)
-				}
 				if e := getEnv(c.Env, "DEF_IMAGE_VALUE"); e.Value != "image" {
 					return fmt.Errorf("target branches = %v", e.Value)
 				}
@@ -366,10 +357,6 @@ func newImageFlowTemplate(name string) *buildv1beta1.ImageFlowTemplate {
 
 func mainContainer(containers []corev1.Container) corev1.Container {
 	return getContainer(containers, "main")
-}
-
-func baseContainer(containers []corev1.Container) corev1.Container {
-	return getContainer(containers, "actor-base")
 }
 
 func getContainer(containers []corev1.Container, name string) corev1.Container {

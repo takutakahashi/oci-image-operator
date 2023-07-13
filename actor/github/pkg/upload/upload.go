@@ -2,21 +2,16 @@ package upload
 
 import (
 	"context"
-	"io"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/external"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/upload"
 	"github.com/takutakahashi/oci-image-operator/actor/github/pkg/github"
 	"github.com/takutakahashi/oci-image-operator/api/v1beta1"
 )
 
 type Upload struct {
-	gh  *github.Github
-	in  io.Reader
-	out io.Writer
+	gh *github.Github
 }
 
 func Init() (*Upload, error) {
@@ -31,32 +26,7 @@ func Init() (*Upload, error) {
 	return &Upload{gh: gh}, nil
 }
 
-func (u Upload) Run(ctx context.Context) error {
-	for {
-		time.Sleep(10 * time.Second)
-		if err := u.Execute(ctx); err != nil {
-			logrus.Error(err)
-			continue
-		} else {
-			break
-		}
-	}
-	return nil
-}
-
-func (u Upload) Execute(ctx context.Context) error {
-	input, err := external.LoadUploadInput(u.in)
-	if err != nil {
-		return err
-	}
-	output, err := u.Output(ctx, input)
-	if err != nil {
-		return err
-	}
-	return external.ExportUploadOutput(output, u.out)
-}
-
-func (u Upload) Output(ctx context.Context, input upload.Input) (upload.Output, error) {
+func (u Upload) Output(ctx context.Context, input *upload.Input) (upload.Output, error) {
 	out := upload.Output{
 		Builds: make([]upload.ImageBuild, len(input.Builds)),
 	}
