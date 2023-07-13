@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"time"
 
 	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
@@ -32,18 +31,15 @@ type Revision struct {
 }
 
 type Check struct {
-	c   client.Client
-	ch  chan bool
-	opt CheckOpt
-	in  io.Writer
-	out io.Reader
+	c     client.Client
+	image *buildv1beta1.Image
+	opt   CheckOpt
 }
 
 type CheckOpt struct {
 	ImageName      string
 	ImageNamespace string
 	ImageTarget    string
-	WatchPath      string
 }
 
 func (c CheckInput) Export(w io.Writer) error {
@@ -82,53 +78,30 @@ func Init(cfg *rest.Config, opt CheckOpt) (*Check, error) {
 	}
 	return &Check{
 		c:   c,
-		ch:  make(chan bool),
 		opt: opt,
 	}, nil
 }
 
-func (c *Check) Run(ctx context.Context) error {
-	for {
-		if err := c.Execute(ctx); err != nil {
-			logrus.Error("error from execute")
-			logrus.Error(err)
-		} else {
-			logrus.Info("finished")
-			return nil
-		}
-		time.Sleep(10 * time.Second)
+func (c *Check) GetImage(ctx context.Context) (*buildv1beta1.Image, error) {
+	if c.image != nil {
+		return c.image, nil
 	}
-}
-
-func (c *Check) Stop() {
-	logrus.Info("Stopping worker")
-	if c.ch != nil {
-		c.ch <- true
-	}
-}
-
-// returns retry (bool) and error
-func (c *Check) Execute(ctx context.Context) error {
-	logrus.Info("start execute")
 	image, err := base.GetImage(ctx, c.c, c.opt.ImageName, c.opt.ImageNamespace)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	logrus.Info("start input func")
-	conds := imageutil.GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
-	if err := GetCheckInput(c.opt.ImageTarget, conds).Export(c.in); err != nil {
-		return err
-	}
-	logrus.Info("start output func")
-	output, err := ImportOutput(c.out)
-	logrus.Info(output)
+	c.image = image
+	return image, nil
+}
+
+func (c *Check) GetInput(ctx context.Context) (*CheckInput, error) {
+	image, err := c.GetImage(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := c.UpdateImage(ctx, image, output); err != nil {
-		return err
-	}
-	return nil
+	conds := imageutil.GetConditionByStatus(image.Status.Conditions, buildv1beta1.ImageConditionTypeChecked, buildv1beta1.ImageConditionStatusFalse)
+	input := GetCheckInput(c.opt.ImageTarget, conds)
+	return &input, nil
 }
 
 func (c *Check) UpdateImage(ctx context.Context, image *buildv1beta1.Image, output CheckOutput) error {

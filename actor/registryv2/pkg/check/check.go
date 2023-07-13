@@ -39,14 +39,14 @@ func (c Check) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	out, err := c.Output(input)
+	out, err := c.Output(&input)
 	if err != nil {
 		return err
 	}
 	return external.ExportCheckOutput(out, nil)
 }
 
-func (c Check) Output(in check.CheckInput) (check.CheckOutput, error) {
+func (c Check) Output(in *check.CheckInput) (check.CheckOutput, error) {
 	revs := []check.Revision{}
 	for _, rev := range in.Revisions {
 		exist, err := c.r.TagExists(rev.ResolvedRevision)

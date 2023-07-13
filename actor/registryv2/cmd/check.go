@@ -1,14 +1,15 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
+	"context"
 	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	basecheck "github.com/takutakahashi/oci-image-operator/actor/base/pkg/check"
 	"github.com/takutakahashi/oci-image-operator/actor/registryv2/pkg/check"
 	"github.com/takutakahashi/oci-image-operator/actor/registryv2/pkg/registryv2"
 )
@@ -24,6 +25,15 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+		base, err := basecheck.Init(nil, basecheck.CheckOpt{
+			ImageName:      os.Getenv("IMAGE_NAME"),
+			ImageNamespace: os.Getenv("IMAGE_NAMESPACE"),
+			ImageTarget:    os.Getenv("IMAGE_TARGET"),
+		})
+		if err != nil {
+			logrus.Fatal(err)
+		}
 		r, err := registryv2.Init(nil, registryv2.Opt{
 			Image: os.Getenv("REGISTRY_IMAGE_NAME"),
 			Auth: &registryv2.Auth{
@@ -38,7 +48,26 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		c.Run()
+
+		// get existance
+		input, err := base.GetInput(ctx)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		out, err := c.Output(input)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		// update image status
+		image, err := base.GetImage(ctx)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		err = base.UpdateImage(ctx, image, out)
+		if err != nil {
+			logrus.Fatal(err)
+		}
 	},
 }
 

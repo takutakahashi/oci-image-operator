@@ -180,7 +180,6 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithServiceAccountName("oci-image-operator-controller-manager").
 		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
 		WithContainers(
-			baseContainer(image.Name, image.Namespace, "check", template.Spec.BaseImage).WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 			actorContainer(image.Name, image.Namespace, &template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
@@ -222,23 +221,6 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 			WithTTLSecondsAfterFinished(ttl))
 	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return job, nil
-}
-
-func baseContainer(name, namespace, role, image string) *corev1apply.ContainerApplyConfiguration {
-	if image == "" {
-		image = "ghcr.io/takutakahashi/oci-image-operator/actor-base:beta"
-	}
-	return corev1apply.Container().
-		WithName("actor-base").
-		WithImage(image).
-		WithArgs(role).
-		WithImagePullPolicy(corev1.PullAlways).
-		WithEnv(
-			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
-			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
-		).
-		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
-
 }
 
 func actorContainer(name, namespace string, spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {

@@ -3,14 +3,9 @@ package check
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"io"
-	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -19,7 +14,6 @@ import (
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestGetCheckFile(t *testing.T) {
@@ -157,8 +151,6 @@ func TestCheck_UpdateImage(t *testing.T) {
 	ctx := context.TODO()
 	type fields struct {
 		opt CheckOpt
-		in  io.Writer
-		out io.Reader
 	}
 	type args struct {
 		ctx    context.Context
@@ -221,8 +213,6 @@ func TestCheck_UpdateImage(t *testing.T) {
 			c := &Check{
 				c:   cli,
 				opt: tt.fields.opt,
-				in:  tt.fields.in,
-				out: tt.fields.out,
 			}
 			defer s()
 			if err := c.c.Get(ctx, types.NamespacedName{Name: tt.args.image.Name, Namespace: tt.args.image.Namespace}, tt.args.image); err != nil {
@@ -237,180 +227,6 @@ func TestCheck_UpdateImage(t *testing.T) {
 			}
 			if d := cmp.Diff(savedObj.Status.Conditions, tt.wantCondition, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); d != "" {
 				t.Errorf("Diff detected. %v", d)
-			}
-		})
-	}
-}
-
-func TestCheck_Run(t *testing.T) {
-	image := testutil.NewImage()
-	c, s := testutil.Setup(image)
-	defer s()
-	type fields struct {
-		c   client.Client
-		ch  chan bool
-		opt CheckOpt
-	}
-	type fieldsJson struct {
-		in  string
-		out string
-	}
-	tests := []struct {
-		name       string
-		fields     fields
-		fieldsJson fieldsJson
-		wantErr    bool
-		want       []buildv1beta1.ImageCondition
-	}{
-		{
-			name: "ok",
-			fields: fields{
-				c:  c,
-				ch: make(chan bool),
-				opt: CheckOpt{
-					ImageName:      image.Name,
-					ImageNamespace: image.Namespace,
-					ImageTarget:    "target",
-					WatchPath:      "",
-				},
-			},
-			fieldsJson: fieldsJson{
-				in:  `{"revisions":[{"registry":"reg","resolved_revision":"run","revision":"master","exist":"False"}]}`,
-				out: `{"revisions":[{"registry":"reg","resolved_revision":"run","revision":"master","exist":"False"}]}`,
-			},
-			want: []buildv1beta1.ImageCondition{
-				{
-					Type:             buildv1beta1.ImageConditionTypeChecked,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					ResolvedRevision: "run",
-					Revision:         "master",
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
-				},
-				{
-					Type:             buildv1beta1.ImageConditionTypeUploaded,
-					Status:           buildv1beta1.ImageConditionStatusFalse,
-					ResolvedRevision: "run",
-					Revision:         "master",
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 20000*time.Millisecond)
-			f, err := os.MkdirTemp(".", "test")
-			if err != nil {
-				panic(err)
-			}
-			defer os.RemoveAll(f)
-			tt.fields.opt.WatchPath = f
-			os.Setenv("WORK_DIR", f)
-			defer os.Setenv("WORK_DIR", "")
-			c := &Check{
-				c:   tt.fields.c,
-				ch:  tt.fields.ch,
-				opt: tt.fields.opt,
-			}
-			var wg sync.WaitGroup
-			savedObj := buildv1beta1.Image{}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// wait for creating input file
-				time.Sleep(10 * time.Second)
-				t.Log("start file create")
-				ff, err := os.Create(fmt.Sprintf("%s/output", f))
-				if err != nil {
-					t.Error(err)
-				}
-				t.Log("writing...")
-				_, err = ff.Write(bytes.NewBufferString(tt.fieldsJson.out).Bytes())
-				if err != nil {
-					t.Error(err)
-				}
-			}()
-			if err := c.Run(ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Check.Run() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			wg.Wait()
-			t.Log("getting...")
-			if err := c.c.Get(context.TODO(), types.NamespacedName{Name: image.Name, Namespace: image.Namespace}, &savedObj); err != nil {
-				panic(err)
-			}
-			if diff := cmp.Diff(tt.want, savedObj.Status.Conditions, cmpopts.IgnoreFields(buildv1beta1.ImageCondition{}, "LastTransitionTime")); diff != "" {
-				t.Error("diff detected")
-				t.Error(diff)
-			}
-			cancel()
-		})
-	}
-}
-
-func TestCheck_Execute(t *testing.T) {
-	image := testutil.NewImage()
-	c, s := testutil.Setup(image)
-	defer s()
-	type fields struct {
-		c   client.Client
-		ch  chan bool
-		opt CheckOpt
-	}
-	type fieldsJson struct {
-		in  string
-		out string
-	}
-	tests := []struct {
-		name       string
-		fields     fields
-		fieldsJson fieldsJson
-		wantErr    bool
-		want       []buildv1beta1.ImageCondition
-	}{
-		{
-			name: "ok",
-			fields: fields{
-				c:  c,
-				ch: make(chan bool),
-				opt: CheckOpt{
-					ImageName:      image.Name,
-					ImageNamespace: image.Namespace,
-					ImageTarget:    "target",
-					WatchPath:      "",
-				},
-			},
-			fieldsJson: fieldsJson{
-				in:  `{"revisions":[{"registry":"reg","resolved_revision":"execute","revision":"master","exist":"False"}]}`,
-				out: `{"revisions":[{"registry":"reg","resolved_revision":"execute","revision":"master","exist":"False"}]}`,
-			},
-			want: []buildv1beta1.ImageCondition{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Check{
-				c:   tt.fields.c,
-				ch:  nil,
-				opt: tt.fields.opt,
-			}
-			f, err := os.MkdirTemp(".", "test")
-			if err != nil {
-				panic(err)
-			}
-			defer os.RemoveAll(f)
-			tt.fields.opt.WatchPath = f
-			os.Setenv("WORK_DIR", f)
-			ff, err := os.Create(fmt.Sprintf("%s/output", f))
-			if err != nil {
-				t.Error(err)
-			}
-			t.Log("writing...")
-			_, err = ff.Write(bytes.NewBufferString(tt.fieldsJson.out).Bytes())
-			if err != nil {
-				t.Error(err)
-			}
-			if err := c.Execute(context.TODO()); (err != nil) != tt.wantErr {
-				t.Errorf("Check.Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
