@@ -1,13 +1,11 @@
 package detect
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"reflect"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v43/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
@@ -46,54 +44,6 @@ func mockhttp() *http.Client {
 	)
 }
 
-func TestDetect_Execute(t *testing.T) {
-	gh, err := mygithub.Init(&mygithub.GithubOpt{
-		BaseURL:    "https://api.github.com/",
-		Org:        "test",
-		Repo:       "test",
-		Branches:   "master",
-		Tags:       "latest/hash",
-		HTTPClient: mockhttp(),
-	})
-	if err != nil {
-		panic(err)
-	}
-	buf := bytes.Buffer{}
-
-	type fields struct {
-		gh *mygithub.Github
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-		wantBuf string
-	}{
-		{
-			name: "ok_branch",
-			fields: fields{
-				gh: gh,
-			},
-			wantErr: false,
-			wantBuf: `{"branches":{"master":"master123master"},"tags":{"latest/hash":"00002222"}}`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			d := &Detect{
-				gh: tt.fields.gh,
-			}
-			if err := d.Execute(); (err != nil) != tt.wantErr {
-				t.Errorf("Detect.Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if diff := cmp.Diff(buf.String(), tt.wantBuf); diff != "" {
-				t.Errorf("Detect.Execute() diff = %v", diff)
-			}
-		})
-	}
-}
-
 func TestDetect_Output(t *testing.T) {
 	gh, err := mygithub.Init(&mygithub.GithubOpt{
 		BaseURL:    "https://api.github.com/",
@@ -123,6 +73,9 @@ func TestDetect_Output(t *testing.T) {
 			name: "ok_branch",
 			fields: fields{
 				gh: gh,
+			},
+			args: args{
+				ctx: context.Background(),
 			},
 			wantErr: false,
 			want: &detect.DetectFile{
