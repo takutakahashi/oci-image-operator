@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.45](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.44...v0.1.45) - 2023-07-13
+- rm base container and add e2e by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/58
+
 ## [v0.1.44](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.43...v0.1.44) - 2023-07-11
 - fix detect: no change to False on CheckedCondition by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/55
 
