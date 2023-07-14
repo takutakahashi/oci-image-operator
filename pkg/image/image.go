@@ -368,8 +368,10 @@ func GetConditionByStatus(conditions []buildv1beta1.ImageCondition, condType bui
 func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
 	for i, c := range conditions {
 		if c.Type == buildv1beta1.ImageConditionTypeUploaded && c.Revision == revision {
-			// TODO: get check condition and cancel this upload if check is filtered
-			conditions[i].Status = buildv1beta1.ImageConditionStatusCanceled
+			checked := GetConditionByRevision(conditions, buildv1beta1.ImageConditionTypeChecked, revision)
+			if checked.TagPolicy == tagPolicy && checked.Status != buildv1beta1.ImageConditionStatusUnknown {
+				conditions[i].Status = buildv1beta1.ImageConditionStatusCanceled
+			}
 		}
 		if c.Type == buildv1beta1.ImageConditionTypeChecked && c.TagPolicy == tagPolicy && c.Revision == revision {
 			conditions[i].Status = buildv1beta1.ImageConditionStatusCanceled
@@ -398,8 +400,21 @@ func GetConditionByResolvedRevision(conditions []buildv1beta1.ImageCondition, co
 	return buildv1beta1.ImageCondition{
 		LastTransitionTime: nil,
 		Type:               condType,
-		Status:             buildv1beta1.ImageConditionStatusFalse,
+		Status:             buildv1beta1.ImageConditionStatusUnknown,
 		ResolvedRevision:   resolvedRevision,
+	}
+}
+func GetConditionByRevision(conditions []buildv1beta1.ImageCondition, condType buildv1beta1.ImageConditionType, revision string) buildv1beta1.ImageCondition {
+	for _, c := range conditions {
+		if c.Type == condType && c.Revision == revision {
+			return c
+		}
+	}
+	return buildv1beta1.ImageCondition{
+		LastTransitionTime: nil,
+		Type:               condType,
+		Status:             buildv1beta1.ImageConditionStatusUnknown,
+		Revision:           revision,
 	}
 }
 

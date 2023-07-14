@@ -1,9 +1,11 @@
 package image
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
 )
 
@@ -20,7 +22,7 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 		want []buildv1beta1.ImageCondition
 	}{
 		{
-			name: "ok",
+			name: "check",
 			args: args{
 				conditions: []buildv1beta1.ImageCondition{
 					{
@@ -43,6 +45,46 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 						TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
 						Revision:         "master2",
 						ResolvedRevision: "nottocancel-2",
+					},
+				},
+				tagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+				revision:         "master",
+				resolvedRevision: "qwerty",
+			},
+			want: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusCanceled,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+					Revision:         "master",
+					ResolvedRevision: "tocancel",
+				},
+				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusTrue,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
+					Revision:         "master",
+					ResolvedRevision: "nottocancel-1",
+				},
+				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusFalse,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+					Revision:         "master2",
+					ResolvedRevision: "nottocancel-2",
+				},
+			},
+		},
+		{
+			name: "upload",
+			args: args{
+				conditions: []buildv1beta1.ImageCondition{
+					{
+						Type:             buildv1beta1.ImageConditionTypeChecked,
+						Status:           buildv1beta1.ImageConditionStatusFalse,
+						TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+						Revision:         "master",
+						ResolvedRevision: "tocancel",
 					},
 					{
 						Type:             buildv1beta1.ImageConditionTypeUploaded,
@@ -72,20 +114,6 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 					ResolvedRevision: "tocancel",
 				},
 				{
-					Type:             buildv1beta1.ImageConditionTypeChecked,
-					Status:           buildv1beta1.ImageConditionStatusTrue,
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeTagHash,
-					Revision:         "master",
-					ResolvedRevision: "nottocancel-1",
-				},
-				{
-					Type:             buildv1beta1.ImageConditionTypeChecked,
-					Status:           buildv1beta1.ImageConditionStatusFalse,
-					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
-					Revision:         "master2",
-					ResolvedRevision: "nottocancel-2",
-				},
-				{
 					Type:             buildv1beta1.ImageConditionTypeUploaded,
 					Status:           buildv1beta1.ImageConditionStatusCanceled,
 					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
@@ -105,7 +133,8 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := MarkUploadConditionAsCanceled(tt.args.conditions, tt.args.tagPolicy, tt.args.revision, tt.args.resolvedRevision); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarkUploadConditionAsCanceled() = %v, want %v", got, tt.want)
+				t.Error("MarkUploadConditionAsCanceled()")
+				fmt.Println(cmp.Diff(got, tt.want))
 			}
 		})
 	}
