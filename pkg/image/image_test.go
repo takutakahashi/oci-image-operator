@@ -132,7 +132,7 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MarkUploadConditionAsCanceled(tt.args.conditions, tt.args.tagPolicy, tt.args.revision, tt.args.resolvedRevision); !reflect.DeepEqual(got, tt.want) {
+			if got := MarkUploadConditionAsCanceled(tt.args.conditions, tt.args.tagPolicy, tt.args.revision); !reflect.DeepEqual(got, tt.want) {
 				t.Error("MarkUploadConditionAsCanceled()")
 				fmt.Println(cmp.Diff(got, tt.want))
 			}

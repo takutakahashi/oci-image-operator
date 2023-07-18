@@ -370,7 +370,7 @@ Mark as Canceled with below strategy.
  1. checked Condition will be canceled when specified tagPolicy and revision are matched
  2. upload condition will be canceled when checked condition with specified tagPolicy and revision is exists and resolved revision of uploaded will be matched
 */
-func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
+func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision string) []buildv1beta1.ImageCondition {
 	for i, c := range conditions {
 		if c.Type == buildv1beta1.ImageConditionTypeUploaded && c.Revision == revision {
 			checked := GetConditionByRevision(conditions, buildv1beta1.ImageConditionTypeChecked, revision)

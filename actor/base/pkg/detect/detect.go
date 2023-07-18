@@ -98,7 +98,7 @@ func ensureConditions(conditions []buildv1beta1.ImageCondition, detectFile *Dete
 				checked = cond.Status
 			}
 		}
-		conditions = imageutil.MarkUploadConditionAsCanceled(conditions, buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
+		conditions = imageutil.MarkUploadConditionAsCanceled(conditions, buildv1beta1.ImageTagPolicyTypeBranchHash, branch)
 		conditions = imageutil.UpdateCondition(conditions, buildv1beta1.ImageConditionTypeChecked, &checked,
 			buildv1beta1.ImageTagPolicyTypeBranchHash, branch, resolvedRevision)
 	}
