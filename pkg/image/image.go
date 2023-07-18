@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	buildv1beta1 "github.com/takutakahashi/oci-image-operator/api/v1beta1"
@@ -367,9 +368,12 @@ func GetConditionByStatus(conditions []buildv1beta1.ImageCondition, condType bui
 
 func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision, resolvedRevision string) []buildv1beta1.ImageCondition {
 	for i, c := range conditions {
+		logrus.Infof("=====%d=====", i)
 		if c.Type == buildv1beta1.ImageConditionTypeUploaded && c.Revision == revision {
 			checked := GetConditionByRevision(conditions, buildv1beta1.ImageConditionTypeChecked, revision)
-			if checked.TagPolicy == tagPolicy && checked.Status != buildv1beta1.ImageConditionStatusUnknown {
+			if checked.TagPolicy == tagPolicy && checked.ResolvedRevision == c.ResolvedRevision && checked.Status != buildv1beta1.ImageConditionStatusUnknown {
+				pp.Println(checked)
+				pp.Println(conditions[i])
 				conditions[i].Status = buildv1beta1.ImageConditionStatusCanceled
 			}
 		}
