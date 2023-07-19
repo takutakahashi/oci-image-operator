@@ -221,12 +221,15 @@ func cancelJob(ctx context.Context, c client.Client, image *buildv1beta1.Image, 
 	if cond.Status != buildv1beta1.ImageConditionStatusCanceled {
 		return nil
 	}
+	p := v1.DeletePropagationBackground
 	return client.IgnoreNotFound(c.Delete(ctx, &batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      genName(image.Name, cond),
 			Namespace: "oci-image-operator-system",
 		},
-	}, &client.DeleteOptions{}))
+	}, &client.DeleteOptions{
+		PropagationPolicy: &p,
+	}))
 }
 
 func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, uploadedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
@@ -398,6 +401,7 @@ Mark as Canceled with below strategy.
  2. upload condition will be canceled when checked condition with specified tagPolicy and revision is exists and resolved revision of uploaded will be matched
 */
 func MarkUploadConditionAsCanceled(conditions []buildv1beta1.ImageCondition, tagPolicy buildv1beta1.ImageTagPolicyType, revision string) []buildv1beta1.ImageCondition {
+	// TODO: not cancel latest upload
 	for i, c := range conditions {
 		if c.Type == buildv1beta1.ImageConditionTypeUploaded && c.Revision == revision {
 			checked := GetConditionByRevision(conditions, buildv1beta1.ImageConditionTypeChecked, revision)
