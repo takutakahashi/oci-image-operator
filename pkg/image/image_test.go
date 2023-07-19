@@ -129,10 +129,64 @@ func TestMarkUploadConditionAsCanceled(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "concern_resolved_revision",
+			args: args{
+				conditions: []buildv1beta1.ImageCondition{
+					{
+						Type:             buildv1beta1.ImageConditionTypeChecked,
+						Status:           buildv1beta1.ImageConditionStatusFalse,
+						TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+						Revision:         "master",
+						ResolvedRevision: "tocancel",
+					},
+					{
+						Type:             buildv1beta1.ImageConditionTypeUploaded,
+						Status:           buildv1beta1.ImageConditionStatusFalse,
+						TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+						Revision:         "master",
+						ResolvedRevision: "tocancel",
+					},
+					{
+						Type:             buildv1beta1.ImageConditionTypeUploaded,
+						Status:           buildv1beta1.ImageConditionStatusFalse,
+						TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+						Revision:         "master",
+						ResolvedRevision: "nottocancel",
+					},
+				},
+				tagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+				revision:         "master",
+				resolvedRevision: "nottocancel",
+			},
+			want: []buildv1beta1.ImageCondition{
+				{
+					Type:             buildv1beta1.ImageConditionTypeChecked,
+					Status:           buildv1beta1.ImageConditionStatusCanceled,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeBranchHash,
+					Revision:         "master",
+					ResolvedRevision: "tocancel",
+				},
+				{
+					Type:             buildv1beta1.ImageConditionTypeUploaded,
+					Status:           buildv1beta1.ImageConditionStatusCanceled,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+					Revision:         "master",
+					ResolvedRevision: "tocancel",
+				},
+				{
+					Type:             buildv1beta1.ImageConditionTypeUploaded,
+					Status:           buildv1beta1.ImageConditionStatusFalse,
+					TagPolicy:        buildv1beta1.ImageTagPolicyTypeUnused,
+					Revision:         "master",
+					ResolvedRevision: "nottocancel",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MarkUploadConditionAsCanceled(tt.args.conditions, tt.args.tagPolicy, tt.args.revision); !reflect.DeepEqual(got, tt.want) {
+			if got := MarkUploadConditionAsCanceled(tt.args.conditions, tt.args.tagPolicy, tt.args.revision, tt.args.resolvedRevision); !reflect.DeepEqual(got, tt.want) {
 				t.Error("MarkUploadConditionAsCanceled()")
 				fmt.Println(cmp.Diff(got, tt.want))
 			}
