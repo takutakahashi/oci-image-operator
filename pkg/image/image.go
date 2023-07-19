@@ -35,6 +35,11 @@ const (
 )
 
 func Ensure(ctx context.Context, c client.Client, image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, secrets map[string]*corev1.Secret) (*buildv1beta1.Image, error) {
+	for _, cond := range image.Status.Conditions {
+		if err := cancelJob(ctx, c, image, cond); err != nil {
+			return nil, err
+		}
+	}
 	// TODO: refine status only uploaded
 	if after, err := EnsureDetect(ctx, c, image, template, secrets); err != nil || Diff(image, after) != "" {
 		return after, err
@@ -183,9 +188,7 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 			actorContainer(image.Name, image.Namespace, &template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
-	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", checkedCondition.Revision, checkedCondition.TagPolicy)))
-	h := hex.EncodeToString(r[:])
-	name := fmt.Sprintf("%s-check-%s", image.Name, h[:7])
+	name := genName(image.Name, checkedCondition)
 	job := batchv1apply.Job(name, "oci-image-operator-system").
 		WithLabels(image.Labels).
 		// TODO: add owner reference
@@ -198,6 +201,34 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 	return job, nil
 }
 
+func genName(imageName string, cond buildv1beta1.ImageCondition) string {
+	op := ""
+	switch cond.Type {
+	case buildv1beta1.ImageConditionTypeUploaded:
+		op = "upload"
+	case buildv1beta1.ImageConditionTypeChecked:
+		op = "check"
+
+	default:
+		op = "unknown"
+	}
+	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s-%s", cond.TagPolicy, cond.Revision, cond.ResolvedRevision)))
+	h := hex.EncodeToString(r[:])
+	return fmt.Sprintf("%s-%s-%s", imageName, op, h[:7])
+}
+
+func cancelJob(ctx context.Context, c client.Client, image *buildv1beta1.Image, cond buildv1beta1.ImageCondition) error {
+	if cond.Status != buildv1beta1.ImageConditionStatusCanceled {
+		return nil
+	}
+	return client.IgnoreNotFound(c.Delete(ctx, &batchv1.Job{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      genName(image.Name, cond),
+			Namespace: "oci-image-operator-system",
+		},
+	}, &client.DeleteOptions{}))
+}
+
 func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, uploadedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(uploadedCondition.ResolvedRevision)
 	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
@@ -208,13 +239,9 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 			actorContainer(image.Name, image.Namespace, &template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
 		))
 	// add sha256 from revision and tag policy
-	r := sha256.Sum256([]byte(fmt.Sprintf("%s-%s", uploadedCondition.Revision, uploadedCondition.TagPolicy)))
-	h := hex.EncodeToString(r[:])
-	name := fmt.Sprintf("%s-upload-%s", image.Name, h[:7])
+	name := genName(image.Name, uploadedCondition)
 	job := batchv1apply.Job(name, "oci-image-operator-system").
 		WithLabels(image.Labels).
-		// TODO: add owner reference
-		WithOwnerReferences().
 		WithAnnotations(image.Annotations).
 		WithSpec(batchv1apply.JobSpec().
 			WithTemplate(podTemplate).

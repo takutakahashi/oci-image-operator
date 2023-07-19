@@ -139,10 +139,10 @@ var _ = Describe("Image controller", func() {
 			}).WithTimeout(2000 * time.Millisecond).Should(Succeed())
 			Eventually(func() error {
 				job := batchv1.Job{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-dd2a454", Namespace: "oci-image-operator-system"}, &job); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-9ac55c1", Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
 				}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-check-check-7c68eaf", Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
 				}
 				c := mainContainer(job.Spec.Template.Spec.Containers)
@@ -178,15 +178,23 @@ var _ = Describe("Image controller", func() {
 			err = toChecked(image, "master", "test12345")
 			Expect(err).To(Succeed())
 			Eventually(func() error {
+				l := &batchv1.JobList{}
+				k8sClient.List(ctx, l)
+				for _, c := range l.Items {
+					logrus.Info(c.Name, c.Namespace)
+				}
 				if err := k8sClient.Get(ctx, objKey, inClusterImage); err != nil {
 					return err
 				}
+				logrus.Info(image.Status.Conditions)
 				if len(inClusterImage.Status.Conditions) == 0 {
-					logrus.Info(image.Status.Conditions)
 					return fmt.Errorf("conditions are not found")
 				}
 				job := batchv1.Job{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-upload-upload-0984785", Namespace: "oci-image-operator-system"}, &job); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-upload-upload-7c68eaf", Namespace: "oci-image-operator-system"}, &job); err != nil {
+					return err
+				}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-upload-upload-9ac55c1", Namespace: "oci-image-operator-system"}, &job); err != nil {
 					return err
 				}
 				return nil
