@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"golang.org/x/oauth2"
+	"k8s.io/utils/strings/slices"
 )
 
 type GithubOpt struct {
@@ -213,8 +214,8 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 		return nil, fmt.Errorf("dispatch failed: %s", res.Status)
 	}
 	// wait for detecting run
+	waiting := []string{"queued", "in_progress", "waiting"}
 	for {
-		time.Sleep(1 * time.Second)
 		nowRuns, _, err := g.c.Actions.ListWorkflowRunsByFileName(
 			ctx,
 			g.opt.Org,
@@ -229,10 +230,12 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 		if err != nil {
 			return nil, err
 		}
-		if nowRuns.WorkflowRuns[0].GetRunStartedAt().IsZero() {
+		time.Sleep(2 * time.Second)
+		s := nowRuns.WorkflowRuns[0].Status
+		if slices.Contains(waiting, *s) {
 			return nowRuns.WorkflowRuns[0], nil
 		} else {
-			logrus.Info("latest run is already started")
+			logrus.Info("latest run is already completed")
 			continue
 		}
 	}
@@ -249,6 +252,7 @@ func (g *Github) cancelRun(ctx context.Context, ourRun *github.WorkflowRun) erro
 	if err != nil || res.StatusCode != 202 {
 		return fmt.Errorf("failed to cancel workflow, id: %d", ourRun.GetID())
 	}
+	logrus.Info("cancelled")
 	return nil
 }
 
@@ -259,7 +263,8 @@ func (g *Github) waitForComplete(ctx context.Context, ourRun *github.WorkflowRun
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigs
+		s := <-sigs
+		logrus.Infof("%v recieved", s)
 		done <- g.cancelRun(ctx, ourRun)
 	}()
 	go func() {
