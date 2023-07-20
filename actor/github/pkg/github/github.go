@@ -215,6 +215,7 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 	}
 	// wait for detecting run
 	waiting := []string{"queued", "in_progress", "waiting"}
+	expectedTime := time.Now().Add(-1 * time.Minute)
 	for {
 		nowRuns, _, err := g.c.Actions.ListWorkflowRunsByFileName(
 			ctx,
@@ -232,14 +233,13 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 		}
 		time.Sleep(2 * time.Second)
 		s := nowRuns.WorkflowRuns[0].Status
-		if slices.Contains(waiting, *s) {
+		if slices.Contains(waiting, *s) && nowRuns.WorkflowRuns[0].GetCreatedAt().After(expectedTime) {
 			return nowRuns.WorkflowRuns[0], nil
 		} else {
-			logrus.Info("latest run is already completed")
+			logrus.Info("latest run is not our run")
 			continue
 		}
 	}
-
 }
 
 func (g *Github) cancelRun(ctx context.Context, ourRun *github.WorkflowRun) error {
