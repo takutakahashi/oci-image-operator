@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Netflix/go-env"
@@ -13,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/takutakahashi/oci-image-operator/actor/base/pkg/detect"
 	"golang.org/x/oauth2"
+	"k8s.io/utils/strings/slices"
 )
 
 type GithubOpt struct {
@@ -154,6 +158,19 @@ func (g *Github) getHashes(t string) map[string]string {
 }
 
 func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
+	run, err := g.ExecuteRun(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if wait {
+		return g.waitForComplete(ctx, run)
+	}
+	return nil
+}
+
+func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRun, error) {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	branch, _, _ := g.c.Repositories.GetBranch(
 		ctx,
 		g.opt.Org,
@@ -171,11 +188,11 @@ func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
 			false,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if branch == nil {
-		return fmt.Errorf("default branch must be main or master")
+		return nil, fmt.Errorf("default branch must be main or master")
 	}
 
 	res, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
@@ -191,68 +208,92 @@ func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if res.StatusCode != 204 {
-		return fmt.Errorf("dispatch failed: %s", res.Status)
+		return nil, fmt.Errorf("dispatch failed: %s", res.Status)
 	}
-	if wait {
-		return g.waitForComplete(ctx)
-	}
-	return nil
-}
-
-func (g *Github) waitForComplete(ctx context.Context) error {
-	var ourRun *github.WorkflowRun
+	// wait for detecting run
+	waiting := []string{"queued", "in_progress", "waiting"}
+	expectedTime := time.Now().Add(-1 * time.Minute)
 	for {
-		time.Sleep(2 * time.Second)
-		runs, _, err := g.c.Actions.ListWorkflowRunsByFileName(
+		nowRuns, _, err := g.c.Actions.ListWorkflowRunsByFileName(
 			ctx,
 			g.opt.Org,
 			g.opt.Repo,
 			g.opt.WorkflowFileName,
 			&github.ListWorkflowRunsOptions{
-				Status: "in_progress",
 				ListOptions: github.ListOptions{
 					PerPage: 1,
 				},
 			},
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if len(runs.WorkflowRuns) == 0 {
-			continue
-		}
-		logrus.Infof("id: %d", runs.WorkflowRuns[0].GetID())
-		logrus.Debug(time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time))
-		if time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time) > 1*time.Minute {
-			logrus.Info("no runs catched")
-			continue
-		}
-		ourRun = runs.WorkflowRuns[0]
-		logrus.Infof("find run: %v", ourRun)
-		break
-	}
-	for {
-		time.Sleep(3 * time.Second)
-		run, _, err := g.c.Actions.GetWorkflowRunByID(
-			ctx,
-			g.opt.Org,
-			g.opt.Repo,
-			ourRun.GetID(),
-		)
-		if err != nil {
-			return err
-		}
-		logrus.Info(run.GetConclusion())
-		switch run.GetConclusion() {
-		case "success":
-			return nil
-		case "failure":
-			return fmt.Errorf("failure")
-		default:
+		time.Sleep(2 * time.Second)
+		s := nowRuns.WorkflowRuns[0].Status
+		if slices.Contains(waiting, *s) && nowRuns.WorkflowRuns[0].GetCreatedAt().After(expectedTime) {
+			return nowRuns.WorkflowRuns[0], nil
+		} else {
+			logrus.Info("latest run is not our run")
 			continue
 		}
 	}
+}
+
+func (g *Github) cancelRun(ctx context.Context, ourRun *github.WorkflowRun) error {
+	res, err := g.c.Actions.CancelWorkflowRunByID(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		ourRun.GetID(),
+	)
+	if err != nil || res.StatusCode != 202 {
+		return fmt.Errorf("failed to cancel workflow, id: %d", ourRun.GetID())
+	}
+	logrus.Info("cancelled")
+	return nil
+}
+
+func (g *Github) waitForComplete(ctx context.Context, ourRun *github.WorkflowRun) error {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+	defer cancel()
+	done := make(chan error, 1)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		s := <-sigs
+		logrus.Infof("%v recieved", s)
+		done <- g.cancelRun(ctx, ourRun)
+	}()
+	go func() {
+		for {
+			time.Sleep(3 * time.Second)
+			run, _, err := g.c.Actions.GetWorkflowRunByID(
+				ctx,
+				g.opt.Org,
+				g.opt.Repo,
+				ourRun.GetID(),
+			)
+			if err != nil {
+				done <- err
+				return
+			}
+			logrus.Info(run.GetConclusion())
+			switch run.GetConclusion() {
+			case "success":
+				done <- nil
+				return
+			case "failure":
+				done <- nil
+				return
+			default:
+				continue
+			}
+		}
+
+	}()
+	err := <-done
+	return err
 }
