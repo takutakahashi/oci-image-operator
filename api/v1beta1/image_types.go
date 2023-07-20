@@ -103,10 +103,11 @@ var (
 type ImageConditionStatus string
 
 var (
-	ImageConditionStatusTrue    ImageConditionStatus = "True"
-	ImageConditionStatusFalse   ImageConditionStatus = "False"
-	ImageConditionStatusFailed  ImageConditionStatus = "failed"
-	ImageConditionStatusUnknown ImageConditionStatus = "Unknown"
+	ImageConditionStatusTrue     ImageConditionStatus = "True"
+	ImageConditionStatusFalse    ImageConditionStatus = "False"
+	ImageConditionStatusFailed   ImageConditionStatus = "failed"
+	ImageConditionStatusCanceled ImageConditionStatus = "canceled"
+	ImageConditionStatusUnknown  ImageConditionStatus = "Unknown"
 )
 
 //+kubebuilder:object:root=true
