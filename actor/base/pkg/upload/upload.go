@@ -161,7 +161,7 @@ func (u *Upload) Execute(ctx context.Context) error {
 func getInput(target string, conditions []buildv1beta1.ImageCondition) Input {
 	builds := []ImageBuild{}
 	for _, cond := range conditions {
-		if cond.Type == buildv1beta1.ImageConditionTypeUploaded && cond.Status != buildv1beta1.ImageConditionStatusTrue {
+		if cond.Type == buildv1beta1.ImageConditionTypeUploaded && cond.Status == buildv1beta1.ImageConditionStatusFalse {
 			builds = append(builds, ImageBuild{Tag: cond.ResolvedRevision, Target: target})
 		}
 	}
