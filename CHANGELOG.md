@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.1.48](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.47...v0.1.48) - 2023-07-20
+
 ## [v0.1.47](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.46...v0.1.47) - 2023-07-20
 - Cancel staled build by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/62
 
