@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.47](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.46...v0.1.47) - 2023-07-20
+- Cancel staled build by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/62
+
 ## [v0.1.46](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.45...v0.1.46) - 2023-07-13
 - Retry upload when failed and set status failed retry count exceeded by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/60
 
