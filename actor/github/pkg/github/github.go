@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Netflix/go-env"
@@ -236,29 +239,56 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 
 }
 
+func (g *Github) cancelRun(ctx context.Context, ourRun *github.WorkflowRun) error {
+	res, err := g.c.Actions.CancelWorkflowRunByID(
+		ctx,
+		g.opt.Org,
+		g.opt.Repo,
+		ourRun.GetID(),
+	)
+	if err != nil || res.StatusCode != 202 {
+		return fmt.Errorf("failed to cancel workflow, id: %d", ourRun.GetID())
+	}
+	return nil
+}
+
 func (g *Github) waitForComplete(ctx context.Context, ourRun *github.WorkflowRun) error {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
-	for {
-		time.Sleep(3 * time.Second)
-		run, _, err := g.c.Actions.GetWorkflowRunByID(
-			ctx,
-			g.opt.Org,
-			g.opt.Repo,
-			ourRun.GetID(),
-		)
-		if err != nil {
-			return err
+	done := make(chan error, 1)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		done <- g.cancelRun(ctx, ourRun)
+	}()
+	go func() {
+		for {
+			time.Sleep(3 * time.Second)
+			run, _, err := g.c.Actions.GetWorkflowRunByID(
+				ctx,
+				g.opt.Org,
+				g.opt.Repo,
+				ourRun.GetID(),
+			)
+			if err != nil {
+				done <- err
+				return
+			}
+			logrus.Info(run.GetConclusion())
+			switch run.GetConclusion() {
+			case "success":
+				done <- nil
+				return
+			case "failure":
+				done <- nil
+				return
+			default:
+				continue
+			}
 		}
-		logrus.Info(run.GetConclusion())
-		switch run.GetConclusion() {
-		case "success":
-			return nil
-		case "failure":
-			return fmt.Errorf("failure")
-		default:
-			continue
-		}
-	}
 
+	}()
+	err := <-done
+	return err
 }
