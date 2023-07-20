@@ -154,6 +154,19 @@ func (g *Github) getHashes(t string) map[string]string {
 }
 
 func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
+	run, err := g.ExecuteRun(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if wait {
+		return g.waitForComplete(ctx, run)
+	}
+	return nil
+}
+
+func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRun, error) {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	branch, _, _ := g.c.Repositories.GetBranch(
 		ctx,
 		g.opt.Org,
@@ -171,11 +184,11 @@ func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
 			false,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if branch == nil {
-		return fmt.Errorf("default branch must be main or master")
+		return nil, fmt.Errorf("default branch must be main or master")
 	}
 
 	res, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
@@ -191,49 +204,41 @@ func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if res.StatusCode != 204 {
-		return fmt.Errorf("dispatch failed: %s", res.Status)
+		return nil, fmt.Errorf("dispatch failed: %s", res.Status)
 	}
-	if wait {
-		return g.waitForComplete(ctx)
-	}
-	return nil
-}
-
-func (g *Github) waitForComplete(ctx context.Context) error {
-	var ourRun *github.WorkflowRun
+	// wait for detecting run
 	for {
-		time.Sleep(2 * time.Second)
-		runs, _, err := g.c.Actions.ListWorkflowRunsByFileName(
+		time.Sleep(1 * time.Second)
+		nowRuns, _, err := g.c.Actions.ListWorkflowRunsByFileName(
 			ctx,
 			g.opt.Org,
 			g.opt.Repo,
 			g.opt.WorkflowFileName,
 			&github.ListWorkflowRunsOptions{
-				Status: "in_progress",
 				ListOptions: github.ListOptions{
 					PerPage: 1,
 				},
 			},
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if len(runs.WorkflowRuns) == 0 {
+		if nowRuns.WorkflowRuns[0].GetRunStartedAt().IsZero() {
+			return nowRuns.WorkflowRuns[0], nil
+		} else {
+			logrus.Info("latest run is already started")
 			continue
 		}
-		logrus.Infof("id: %d", runs.WorkflowRuns[0].GetID())
-		logrus.Debug(time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time))
-		if time.Since(runs.WorkflowRuns[0].GetCreatedAt().Time) > 1*time.Minute {
-			logrus.Info("no runs catched")
-			continue
-		}
-		ourRun = runs.WorkflowRuns[0]
-		logrus.Infof("find run: %v", ourRun)
-		break
 	}
+
+}
+
+func (g *Github) waitForComplete(ctx context.Context, ourRun *github.WorkflowRun) error {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+	defer cancel()
 	for {
 		time.Sleep(3 * time.Second)
 		run, _, err := g.c.Actions.GetWorkflowRunByID(
@@ -255,4 +260,5 @@ func (g *Github) waitForComplete(ctx context.Context) error {
 			continue
 		}
 	}
+
 }
