@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.50](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.49...v0.1.50) - 2023-11-17
+- add resources by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/70
+
 ## [v0.1.49](https://github.com/takutakahashi/oci-image-operator/compare/v0.1.48...v0.1.49) - 2023-07-20
 - upload status is only false by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/66
 - Cancel github actions run by @takutakahashi in https://github.com/takutakahashi/oci-image-operator/pull/68
