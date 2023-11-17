@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -256,6 +257,15 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 func actorContainer(name, namespace string, spec *buildv1beta1.ImageFlowTemplateSpecTemplate, role string) *corev1apply.ContainerApplyConfiguration {
 	return (*corev1apply.ContainerApplyConfiguration)(spec.Actor.DeepCopy()).
 		WithName("main").
+		WithResources(corev1apply.ResourceRequirements().
+			WithRequests(map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			}).
+			WithLimits(map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			})).
 		WithArgs(role).
 		WithEnv(
 			corev1apply.EnvVar().WithName("IMAGE_NAME").WithValue(name),
