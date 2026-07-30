@@ -2,11 +2,15 @@ package github
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -27,15 +31,26 @@ type GithubOpt struct {
 	Tags                string `env:"TARGET_TAGS"`
 	PersonalAccessToken string `env:"GITHUB_TOKEN"`
 	WorkflowFileName    string `env:"GITHUB_WORKFLOW_FILENAME,default=build.yaml"`
-	HTTPClient          *http.Client
+	// DispatchIDInput is the workflow_dispatch input name used to pass a unique ID
+	// so that the dispatched run can be identified from the run list.
+	DispatchIDInput string `env:"GITHUB_DISPATCH_ID_INPUT,default=dispatch_id"`
+	// DispatchIDDisabled disables sending the dispatch ID input entirely and
+	// falls back to the legacy "latest run" detection.
+	DispatchIDDisabled bool `env:"GITHUB_DISPATCH_ID_DISABLED,default=false"`
+	// RunNameRegex optionally extracts the dispatch ID from the run name.
+	// It must contain exactly one capture group which captures the dispatch ID.
+	// When empty, the run name is matched by containing "[<dispatch ID>]".
+	RunNameRegex string `env:"GITHUB_RUN_NAME_REGEX"`
+	HTTPClient   *http.Client
 }
 
 type Github struct {
-	c        *github.Client
-	opt      *GithubOpt
-	branches []string
-	tags     []string
-	revs     map[string]string
+	c         *github.Client
+	opt       *GithubOpt
+	branches  []string
+	tags      []string
+	revs      map[string]string
+	runNameRe *regexp.Regexp
 }
 
 func Init(opt *GithubOpt) (*Github, error) {
@@ -69,7 +84,21 @@ func Init(opt *GithubOpt) (*Github, error) {
 	if opt.Tags != "" {
 		t = strings.Split(opt.Tags, ",")
 	}
-	return &Github{c: c, opt: opt, branches: b, tags: t, revs: map[string]string{}}, nil
+	if opt.DispatchIDInput == "" {
+		opt.DispatchIDInput = "dispatch_id"
+	}
+	var runNameRe *regexp.Regexp
+	if opt.RunNameRegex != "" {
+		re, err := regexp.Compile(opt.RunNameRegex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid GITHUB_RUN_NAME_REGEX %q: %w", opt.RunNameRegex, err)
+		}
+		if re.NumSubexp() < 1 {
+			return nil, fmt.Errorf("GITHUB_RUN_NAME_REGEX %q must contain a capture group for the dispatch ID", opt.RunNameRegex)
+		}
+		runNameRe = re
+	}
+	return &Github{c: c, opt: opt, branches: b, tags: t, revs: map[string]string{}, runNameRe: runNameRe}, nil
 }
 
 func GenOpt(httpClient *http.Client) (*GithubOpt, error) {
@@ -171,6 +200,27 @@ func (g *Github) Dispatch(ctx context.Context, ref string, wait bool) error {
 func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRun, error) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
+	branch, err := g.defaultBranch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dispatchID, err := g.dispatch(ctx, branch.GetName(), ref)
+	if err != nil {
+		return nil, err
+	}
+	if dispatchID != "" {
+		findCtx, findCancel := context.WithTimeout(ctx, 30*time.Second)
+		defer findCancel()
+		run, err := g.findRunByDispatchID(findCtx, dispatchID)
+		if err == nil {
+			return run, nil
+		}
+		logrus.Warnf("failed to identify run by dispatch ID, falling back to legacy run detection: %v", err)
+	}
+	return g.findRunLegacy(ctx)
+}
+
+func (g *Github) defaultBranch(ctx context.Context) (*github.Branch, error) {
 	branch, _, _ := g.c.Repositories.GetBranch(
 		ctx,
 		g.opt.Org,
@@ -194,26 +244,117 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 	if branch == nil {
 		return nil, fmt.Errorf("default branch must be main or master")
 	}
+	return branch, nil
+}
 
+// dispatch triggers the workflow. It returns the dispatch ID passed to the
+// workflow, or an empty string when the run must be detected in the legacy way.
+func (g *Github) dispatch(ctx context.Context, branchName, ref string) (string, error) {
+	dispatchID := ""
+	inputs := map[string]interface{}{
+		"revision": ref,
+	}
+	if !g.opt.DispatchIDDisabled {
+		dispatchID = newDispatchID()
+		inputs[g.opt.DispatchIDInput] = dispatchID
+	}
 	res, err := g.c.Actions.CreateWorkflowDispatchEventByFileName(
 		ctx,
 		g.opt.Org,
 		g.opt.Repo,
 		g.opt.WorkflowFileName,
 		github.CreateWorkflowDispatchEventRequest{
-			Ref: branch.GetName(),
-			Inputs: map[string]interface{}{
-				"revision": ref,
-			},
+			Ref:    branchName,
+			Inputs: inputs,
 		},
 	)
+	if err != nil && dispatchID != "" && isUnexpectedInputsError(err) {
+		logrus.Warnf("workflow %s does not accept input %q, dispatching without it: %v", g.opt.WorkflowFileName, g.opt.DispatchIDInput, err)
+		dispatchID = ""
+		delete(inputs, g.opt.DispatchIDInput)
+		res, err = g.c.Actions.CreateWorkflowDispatchEventByFileName(
+			ctx,
+			g.opt.Org,
+			g.opt.Repo,
+			g.opt.WorkflowFileName,
+			github.CreateWorkflowDispatchEventRequest{
+				Ref:    branchName,
+				Inputs: inputs,
+			},
+		)
+	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if res.StatusCode != 204 {
-		return nil, fmt.Errorf("dispatch failed: %s", res.Status)
+		return "", fmt.Errorf("dispatch failed: %s", res.Status)
 	}
-	// wait for detecting run
+	return dispatchID, nil
+}
+
+func isUnexpectedInputsError(err error) bool {
+	var errRes *github.ErrorResponse
+	if !errors.As(err, &errRes) {
+		return false
+	}
+	return errRes.Response != nil &&
+		errRes.Response.StatusCode == http.StatusUnprocessableEntity &&
+		strings.Contains(errRes.Message, "Unexpected inputs")
+}
+
+func newDispatchID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+// findRunByDispatchID locates the run dispatched by us. The workflow is
+// expected to echo the dispatch ID input into its run-name, which is exposed
+// as the run name in the API even while the run stays queued.
+func (g *Github) findRunByDispatchID(ctx context.Context, dispatchID string) (*github.WorkflowRun, error) {
+	for {
+		runs, _, err := g.c.Actions.ListWorkflowRunsByFileName(
+			ctx,
+			g.opt.Org,
+			g.opt.Repo,
+			g.opt.WorkflowFileName,
+			&github.ListWorkflowRunsOptions{
+				Event: "workflow_dispatch",
+				ListOptions: github.ListOptions{
+					PerPage: 30,
+				},
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		for _, run := range runs.WorkflowRuns {
+			if g.runNameMatches(run.GetName(), dispatchID) {
+				return run, nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("no run matched dispatch ID %s: %w", dispatchID, ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+func (g *Github) runNameMatches(name, dispatchID string) bool {
+	if g.runNameRe != nil {
+		m := g.runNameRe.FindStringSubmatch(name)
+		return len(m) >= 2 && m[1] == dispatchID
+	}
+	return strings.Contains(name, fmt.Sprintf("[%s]", dispatchID))
+}
+
+// findRunLegacy assumes the latest run of the workflow is ours. This is
+// unreliable when multiple dispatches for the same workflow run concurrently
+// and is kept only as a fallback for workflows without run-name support.
+func (g *Github) findRunLegacy(ctx context.Context) (*github.WorkflowRun, error) {
 	waiting := []string{"queued", "in_progress", "waiting"}
 	expectedTime := time.Now().Add(-1 * time.Minute)
 	for {
@@ -231,13 +372,17 @@ func (g *Github) ExecuteRun(ctx context.Context, ref string) (*github.WorkflowRu
 		if err != nil {
 			return nil, err
 		}
-		time.Sleep(2 * time.Second)
-		s := nowRuns.WorkflowRuns[0].Status
-		if slices.Contains(waiting, *s) && nowRuns.WorkflowRuns[0].GetCreatedAt().After(expectedTime) {
-			return nowRuns.WorkflowRuns[0], nil
-		} else {
+		if len(nowRuns.WorkflowRuns) > 0 {
+			run := nowRuns.WorkflowRuns[0]
+			if slices.Contains(waiting, run.GetStatus()) && run.GetCreatedAt().After(expectedTime) {
+				return run, nil
+			}
 			logrus.Info("latest run is not our run")
-			continue
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
 		}
 	}
 }
