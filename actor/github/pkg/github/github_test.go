@@ -2,10 +2,13 @@ package github
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v43/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -238,6 +241,241 @@ func TestGithub_TagHash(t *testing.T) {
 				t.Errorf("Github.TagHash() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGithub_runNameMatches(t *testing.T) {
+	tests := []struct {
+		name       string
+		regex      string
+		runName    string
+		dispatchID string
+		want       bool
+	}{
+		{
+			name:       "default_match",
+			runName:    "docker_push_builder abc123 [f00ba4]",
+			dispatchID: "f00ba4",
+			want:       true,
+		},
+		{
+			name:       "default_unmatch",
+			runName:    "docker_push_builder abc123 [deadbeef]",
+			dispatchID: "f00ba4",
+			want:       false,
+		},
+		{
+			name:       "default_unmatch_without_brackets",
+			runName:    "docker_push_builder abc123 f00ba4",
+			dispatchID: "f00ba4",
+			want:       false,
+		},
+		{
+			name:       "regex_match",
+			regex:      `dispatch_id=([0-9a-f]+)`,
+			runName:    "build abc123 dispatch_id=f00ba4",
+			dispatchID: "f00ba4",
+			want:       true,
+		},
+		{
+			name:       "regex_unmatch",
+			regex:      `dispatch_id=([0-9a-f]+)`,
+			runName:    "build abc123 dispatch_id=deadbeef",
+			dispatchID: "f00ba4",
+			want:       false,
+		},
+		{
+			name:       "regex_no_match_in_name",
+			regex:      `dispatch_id=([0-9a-f]+)`,
+			runName:    "build abc123",
+			dispatchID: "f00ba4",
+			want:       false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g, err := Init(&GithubOpt{
+				BaseURL:      "https://api.github.com/",
+				Org:          "test",
+				Repo:         "test",
+				RunNameRegex: tt.regex,
+				HTTPClient:   mockhttp(),
+			})
+			if err != nil {
+				t.Fatalf("Init() error = %v", err)
+			}
+			if got := g.runNameMatches(tt.runName, tt.dispatchID); got != tt.want {
+				t.Errorf("runNameMatches(%q, %q) = %v, want %v", tt.runName, tt.dispatchID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGithub_Init_InvalidRunNameRegex(t *testing.T) {
+	tests := []struct {
+		name  string
+		regex string
+	}{
+		{name: "broken_regex", regex: `dispatch_id=([`},
+		{name: "no_capture_group", regex: `dispatch_id=[0-9a-f]+`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Init(&GithubOpt{
+				BaseURL:      "https://api.github.com/",
+				Org:          "test",
+				Repo:         "test",
+				RunNameRegex: tt.regex,
+				HTTPClient:   mockhttp(),
+			})
+			if err == nil {
+				t.Errorf("Init() with regex %q should return error", tt.regex)
+			}
+		})
+	}
+}
+
+func mockExecuteRun(dispatchStatus func(callCount int, inputs map[string]interface{}) int, dispatchedID *string) *http.Client {
+	dispatchCalls := 0
+	return mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposBranchesByOwnerByRepoByBranch,
+			github.Branch{
+				Name: pointer.String("master"),
+				Commit: &github.RepositoryCommit{
+					SHA: pointer.String("master123master"),
+				},
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.PostReposActionsWorkflowsDispatchesByOwnerByRepoByWorkflowId,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				dispatchCalls++
+				body, _ := io.ReadAll(r.Body)
+				var req struct {
+					Ref    string                 `json:"ref"`
+					Inputs map[string]interface{} `json:"inputs"`
+				}
+				_ = json.Unmarshal(body, &req)
+				if id, ok := req.Inputs["dispatch_id"].(string); ok {
+					*dispatchedID = id
+				}
+				status := dispatchStatus(dispatchCalls, req.Inputs)
+				if status == http.StatusUnprocessableEntity {
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(`{"message":"Unexpected inputs provided: [\"dispatch_id\"]"}`))
+					return
+				}
+				w.WriteHeader(status)
+			}),
+		),
+		mock.WithRequestMatchHandler(
+			mock.GetReposActionsWorkflowsRunsByOwnerByRepoByWorkflowId,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				runs := github.WorkflowRuns{
+					TotalCount: pointer.Int(2),
+					WorkflowRuns: []*github.WorkflowRun{
+						{
+							ID:        pointer.Int64(999),
+							Name:      pointer.String("docker_push_builder other [deadbeef]"),
+							Status:    pointer.String("queued"),
+							CreatedAt: &github.Timestamp{Time: time.Now()},
+						},
+						{
+							ID:        pointer.Int64(100),
+							Name:      pointer.String("docker_push_builder rev123 [" + *dispatchedID + "]"),
+							Status:    pointer.String("queued"),
+							CreatedAt: &github.Timestamp{Time: time.Now()},
+						},
+					},
+				}
+				b, _ := json.Marshal(runs)
+				_, _ = w.Write(b)
+			}),
+		),
+	)
+}
+
+func TestGithub_ExecuteRun_IdentifiesRunByDispatchID(t *testing.T) {
+	dispatchedID := ""
+	cli := mockExecuteRun(func(_ int, _ map[string]interface{}) int {
+		return http.StatusNoContent
+	}, &dispatchedID)
+	g, err := Init(&GithubOpt{
+		BaseURL:          "https://api.github.com/",
+		Org:              "test",
+		Repo:             "test",
+		WorkflowFileName: "build.yaml",
+		HTTPClient:       cli,
+	})
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	run, err := g.ExecuteRun(context.Background(), "rev123")
+	if err != nil {
+		t.Fatalf("ExecuteRun() error = %v", err)
+	}
+	if dispatchedID == "" {
+		t.Fatal("dispatch_id input was not sent")
+	}
+	if run.GetID() != 100 {
+		t.Errorf("ExecuteRun() returned run ID %d, want 100", run.GetID())
+	}
+}
+
+func TestGithub_ExecuteRun_FallbackOnUnexpectedInputs(t *testing.T) {
+	dispatchedID := ""
+	cli := mockExecuteRun(func(callCount int, inputs map[string]interface{}) int {
+		if _, ok := inputs["dispatch_id"]; ok {
+			return http.StatusUnprocessableEntity
+		}
+		return http.StatusNoContent
+	}, &dispatchedID)
+	g, err := Init(&GithubOpt{
+		BaseURL:          "https://api.github.com/",
+		Org:              "test",
+		Repo:             "test",
+		WorkflowFileName: "build.yaml",
+		HTTPClient:       cli,
+	})
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	run, err := g.ExecuteRun(context.Background(), "rev123")
+	if err != nil {
+		t.Fatalf("ExecuteRun() error = %v", err)
+	}
+	// legacy fallback returns the latest run
+	if run.GetID() != 999 {
+		t.Errorf("ExecuteRun() returned run ID %d, want 999 (latest run)", run.GetID())
+	}
+}
+
+func TestGithub_ExecuteRun_DispatchIDDisabled(t *testing.T) {
+	dispatchedID := ""
+	cli := mockExecuteRun(func(_ int, inputs map[string]interface{}) int {
+		if _, ok := inputs["dispatch_id"]; ok {
+			t.Error("dispatch_id must not be sent when disabled")
+		}
+		return http.StatusNoContent
+	}, &dispatchedID)
+	g, err := Init(&GithubOpt{
+		BaseURL:            "https://api.github.com/",
+		Org:                "test",
+		Repo:               "test",
+		WorkflowFileName:   "build.yaml",
+		DispatchIDDisabled: true,
+		HTTPClient:         cli,
+	})
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	run, err := g.ExecuteRun(context.Background(), "rev123")
+	if err != nil {
+		t.Fatalf("ExecuteRun() error = %v", err)
+	}
+	if run.GetID() != 999 {
+		t.Errorf("ExecuteRun() returned run ID %d, want 999 (latest run)", run.GetID())
 	}
 }
 
