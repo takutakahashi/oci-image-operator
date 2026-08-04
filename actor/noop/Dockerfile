@@ -1,4 +1,4 @@
-FROM golang:1.18 as builder
+FROM golang:1.26.5 AS builder
 WORKDIR /app/
 COPY . ./
 WORKDIR /app/actor/noop

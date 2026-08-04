@@ -1,6 +1,6 @@
 module github.com/takutakahashi/oci-image-operator/actor/github
 
-go 1.20
+go 1.26.5
 
 require (
 	github.com/Netflix/go-env v0.0.0-20210215222557-e437a7e7f9fb
