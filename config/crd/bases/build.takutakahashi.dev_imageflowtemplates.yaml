@@ -731,6 +731,14 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  podTemplate:
+                    description: |-
+                      PodTemplate is merged into the pod template of the generated Deployment/Job.
+                      Only labels and annotations are used from metadata.
+                      Fields managed by the operator (serviceAccountName, restartPolicy, the "main" container,
+                      the "tmpdir" volume and the image label) take precedence over the values specified here.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   requiredEnv:
                     items:
                       type: string
@@ -2279,6 +2287,14 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  podTemplate:
+                    description: |-
+                      PodTemplate is merged into the pod template of the generated Deployment/Job.
+                      Only labels and annotations are used from metadata.
+                      Fields managed by the operator (serviceAccountName, restartPolicy, the "main" container,
+                      the "tmpdir" volume and the image label) take precedence over the values specified here.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   requiredEnv:
                     items:
                       type: string
@@ -3827,6 +3843,14 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  podTemplate:
+                    description: |-
+                      PodTemplate is merged into the pod template of the generated Deployment/Job.
+                      Only labels and annotations are used from metadata.
+                      Fields managed by the operator (serviceAccountName, restartPolicy, the "main" container,
+                      the "tmpdir" volume and the image label) take precedence over the values specified here.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   requiredEnv:
                     items:
                       type: string

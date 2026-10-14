@@ -66,10 +66,33 @@ func (c *VolumeApplyConfiguration) DeepCopy() *VolumeApplyConfiguration {
 	return out
 }
 
+type PodTemplateSpecApplyConfiguration corev1apply.PodTemplateSpecApplyConfiguration
+
+func (c *PodTemplateSpecApplyConfiguration) DeepCopy() *PodTemplateSpecApplyConfiguration {
+	out := new(PodTemplateSpecApplyConfiguration)
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		panic("Failed to marshal")
+	}
+	err = json.Unmarshal(bytes, out)
+	if err != nil {
+		panic("Failed to unmarshal")
+	}
+	return out
+}
+
 type ImageFlowTemplateSpecTemplate struct {
 	Actor       *ContainerApplyConfiguration `json:"actor,omitempty"`
 	Volumes     []VolumeApplyConfiguration   `json:"volumes,omitempty"`
 	RequiredEnv []string                     `json:"requiredEnv,omitempty"`
+	// PodTemplate is merged into the pod template of the generated Deployment/Job.
+	// Only labels and annotations are used from metadata.
+	// Fields managed by the operator (serviceAccountName, restartPolicy, the "main" container,
+	// the "tmpdir" volume and the image label) take precedence over the values specified here.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	PodTemplate *PodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
 }
 
 // ImageFlowTemplateStatus defines the observed state of ImageFlowTemplate

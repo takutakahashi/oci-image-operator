@@ -151,12 +151,9 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 		corev1apply.EnvVar().WithName("TARGET_BRANCHES").WithValue(strings.Join(branches, ",")),
 		corev1apply.EnvVar().WithName("TARGET_TAGS").WithValue(strings.Join(tags, ",")),
 	}
-	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithServiceAccountName("oci-image-operator-controller-manager").
-		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
-		WithContainers(
-			actorContainer(image.Name, image.Namespace, &template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-		))
+	podTemplate := podTemplateSpec(image, &template.Spec.Detect, "",
+		actorContainer(image.Name, image.Namespace, &template.Spec.Detect, "detect").WithEnv(targetEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+	)
 	deploy := appsv1apply.Deployment(fmt.Sprintf("%s-detect", image.Name), "oci-image-operator-system").
 		WithLabels(image.Labels).
 		WithAnnotations(image.Annotations).
@@ -166,7 +163,6 @@ func detectDeployment(image *buildv1beta1.Image, template *buildv1beta1.ImageFlo
 				metav1apply.LabelSelector().WithMatchLabels(
 					setLabel(image.Name, image.Labels))).
 			WithTemplate(podTemplate))
-	deploy.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return deploy, nil
 }
 
@@ -181,13 +177,9 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 			corev1apply.EnvVar().WithName("REGISTRY_AUTH_PASSWORD").WithValueFrom(corev1apply.EnvVarSource().WithSecretKeyRef(corev1apply.SecretKeySelector().WithName(image.Spec.Targets[0].Auth.SecretName).WithKey("password"))),
 		)
 	}
-	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithRestartPolicy(corev1.RestartPolicyOnFailure).
-		WithServiceAccountName("oci-image-operator-controller-manager").
-		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
-		WithContainers(
-			actorContainer(image.Name, image.Namespace, &template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-		))
+	podTemplate := podTemplateSpec(image, &template.Spec.Check, corev1.RestartPolicyOnFailure,
+		actorContainer(image.Name, image.Namespace, &template.Spec.Check, "check").WithEnv(revEnv).WithEnv(registryEnv...).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+	)
 	// add sha256 from revision and tag policy
 	name := genName(image.Name, checkedCondition)
 	job := batchv1apply.Job(name, "oci-image-operator-system").
@@ -198,7 +190,6 @@ func checkJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplat
 		WithSpec(batchv1apply.JobSpec().
 			WithTemplate(podTemplate).
 			WithTTLSecondsAfterFinished(ttl))
-	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return job, nil
 }
 
@@ -235,13 +226,9 @@ func cancelJob(ctx context.Context, c client.Client, image *buildv1beta1.Image, 
 
 func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTemplate, uploadedCondition buildv1beta1.ImageCondition) (*batchv1apply.JobApplyConfiguration, error) {
 	revEnv := corev1apply.EnvVar().WithName("RESOLVED_REVISION").WithValue(uploadedCondition.ResolvedRevision)
-	podTemplate := corev1apply.PodTemplateSpec().WithSpec(corev1apply.PodSpec().
-		WithRestartPolicy(corev1.RestartPolicyOnFailure).
-		WithServiceAccountName("oci-image-operator-controller-manager").
-		WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource())).
-		WithContainers(
-			actorContainer(image.Name, image.Namespace, &template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
-		))
+	podTemplate := podTemplateSpec(image, &template.Spec.Upload, corev1.RestartPolicyOnFailure,
+		actorContainer(image.Name, image.Namespace, &template.Spec.Upload, "upload").WithEnv(revEnv).WithEnv(toEnvVarConfiguration(image.Spec.Env)...),
+	)
 	// add sha256 from revision and tag policy
 	name := genName(image.Name, uploadedCondition)
 	job := batchv1apply.Job(name, "oci-image-operator-system").
@@ -250,7 +237,6 @@ func uploadJob(image *buildv1beta1.Image, template *buildv1beta1.ImageFlowTempla
 		WithSpec(batchv1apply.JobSpec().
 			WithTemplate(podTemplate).
 			WithTTLSecondsAfterFinished(ttl))
-	job.Spec.Template.ObjectMetaApplyConfiguration = metav1apply.ObjectMeta().WithLabels(setLabel(image.Name, image.Labels))
 	return job, nil
 }
 
@@ -272,6 +258,50 @@ func actorContainer(name, namespace string, spec *buildv1beta1.ImageFlowTemplate
 			corev1apply.EnvVar().WithName("IMAGE_NAMESPACE").WithValue(namespace),
 		).
 		WithVolumeMounts(corev1apply.VolumeMount().WithMountPath(actorWorkDir).WithName("tmpdir"))
+}
+
+// podTemplateSpec merges spec.PodTemplate with the fields required by the operator.
+// The operator managed fields always win: serviceAccountName, restartPolicy, the image label,
+// the "main" container and the "tmpdir" volume. Empty restartPolicy means it is left unset (for Deployment).
+func podTemplateSpec(image *buildv1beta1.Image, spec *buildv1beta1.ImageFlowTemplateSpecTemplate, restartPolicy corev1.RestartPolicy, main *corev1apply.ContainerApplyConfiguration) *corev1apply.PodTemplateSpecApplyConfiguration {
+	base := corev1apply.PodTemplateSpec()
+	if spec.PodTemplate != nil {
+		base = (*corev1apply.PodTemplateSpecApplyConfiguration)(spec.PodTemplate.DeepCopy())
+	}
+
+	meta := metav1apply.ObjectMeta()
+	if base.ObjectMetaApplyConfiguration != nil {
+		meta.WithLabels(base.Labels).WithAnnotations(base.Annotations)
+	}
+	meta.WithLabels(image.Labels).WithLabels(map[string]string{"build.takutakahashi.dev/image": image.Name})
+
+	podSpec := base.Spec
+	if podSpec == nil {
+		podSpec = corev1apply.PodSpec()
+	}
+	podSpec.RestartPolicy = nil
+	if restartPolicy != "" {
+		podSpec.WithRestartPolicy(restartPolicy)
+	}
+	podSpec.WithServiceAccountName("oci-image-operator-controller-manager")
+
+	userVolumes, userContainers := podSpec.Volumes, podSpec.Containers
+	podSpec.Volumes, podSpec.Containers = nil, nil
+	podSpec.WithVolumes(corev1apply.Volume().WithName("tmpdir").WithEmptyDir(corev1apply.EmptyDirVolumeSource()))
+	for i := range userVolumes {
+		if userVolumes[i].Name == nil || *userVolumes[i].Name != "tmpdir" {
+			podSpec.WithVolumes(&userVolumes[i])
+		}
+	}
+	podSpec.WithContainers(main)
+	for i := range userContainers {
+		if userContainers[i].Name == nil || *userContainers[i].Name != "main" {
+			podSpec.WithContainers(&userContainers[i])
+		}
+	}
+
+	base.ObjectMetaApplyConfiguration = meta
+	return base.WithSpec(podSpec)
 }
 
 func applyDeployment(ctx context.Context, c client.Client, deploy *appsv1apply.DeploymentApplyConfiguration) error {
