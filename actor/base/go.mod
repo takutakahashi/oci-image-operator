@@ -1,6 +1,6 @@
 module github.com/takutakahashi/oci-image-operator/actor/base
 
-go 1.26.5
+go 1.27.3
 
 require (
 	github.com/docker/distribution v2.8.1+incompatible

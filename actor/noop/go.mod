@@ -1,6 +1,6 @@
 module github.com/takutakahashi/oci-image-operator/actor/noop
 
-go 1.26.5
+go 1.27.3
 
 replace (
 	github.com/takutakahashi/oci-image-operator => ../..
