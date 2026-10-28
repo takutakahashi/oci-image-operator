@@ -1,6 +1,6 @@
 module github.com/takutakahashi/oci-image-operator
 
-go 1.26.5
+go 1.27.3
 
 require (
 	github.com/google/go-cmp v0.5.8
